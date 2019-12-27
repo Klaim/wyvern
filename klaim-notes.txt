@@ -1,0 +1,70 @@
+Wyvern: CMake To Build2 Tool
+----------------------------
+
+Goals
+-----
+
+A. Extract target information from an installed CMake project package.
+B. Extract target information from a source/build-directory CMake project.
+C. Expose targets to build2 so that it can use the information of these potential dependencies.
+
+Do we really need to handle the case with the sources? Maybe just case A is necessary?
+
+Notes
+-----
+
+1. cmake exposes information about targets depending on the build mode.
+Therefore, we need to specify which mode we want the target in.
+
+2. Steps the tool needs to take
+  0. detect the kind of target directory: sources (CMakeLists.txt is here), build (CMakeCache.txt), install
+  1. invoke cmake:
+    - if we target a source directory: invoke cmake on it with a custom build dir (optionally let the user specify the build dir)
+    - if we target a build directory: invoke cmake on it (we'll use that build directory)
+    - if it's an install directory: create a CMakeLists.txt with just find_package invoking the install dir.
+  2. request info through the cmake file api
+  3. read wanted infos in the mode we want:
+    - targets: names, artefact paths, compilation flags (for users at least), dependencies, (programming language?), shared or static or exe?, etc.
+  4. generate equivalent buildfile to generate stubs packages?
+  5.
+
+
+3. program's arguments should be:
+ - mode (release by default)
+ - target source, build or install directory
+ -
+
+4. BEWARE of taking into account the dependencies of the found targets.
+    We have to keep track of the dependencies being local OR the remote ones.
+
+TODO
+----
+
+ - play with cmake file-api in the case of a cmake-package
+ - see how it looks when you have a cmake package referencing other packages (through find_package)
+ - find how to distinguish include dirs that should be added to a library users, vs the other libraries (private)
+ - gather dependencies for the tool:
+   - boost(process)
+   - something for handling arguments and help
+   - json library (modern json?)
+   - format library (fmt?)
+
+ - start write the tool to read the basic info:
+   - list of targets, with for each target:
+     - programming language
+     - include dirs
+     - binaries paths (or just the dirs where to find them?)
+     - link flags that users should use
+     - preprocessor flags that user should use
+     - compilation flags that user should use
+
+ - output the info found (at least on stdout)
+    - in variables that build2 can understand: config.libmachin.libs=<value> (see build2 doc)
+
+ - try to "pipe" the output into a bdep/bpkg init command?
+
+ - DONE: play cmake file-api with simple source/build project
+
+
+
+
