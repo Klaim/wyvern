@@ -1,6 +1,5 @@
 #include <cassert>
-#include <sstream>
-#include <stdexcept>
+#include <nocontracts/assert.hpp>
 
 #include <libwyvern/version.hpp>
 #include <libwyvern/wyvern.hpp>
@@ -10,24 +9,7 @@ int main ()
   using namespace std;
   using namespace wyvern;
 
-  // Basics.
-  //
-  {
-    ostringstream o;
-    say_hello (o, "World");
-    assert (o.str () == "Hello, World!\n");
-  }
+  const auto deps_info = extract_dependencies({});
+  NC_ASSERT_TRUE( deps_info.empty() );
 
-  // Empty name.
-  //
-  try
-  {
-    ostringstream o;
-    say_hello (o, "");
-    assert (false);
-  }
-  catch (const invalid_argument& e)
-  {
-    assert (e.what () == string ("empty name"));
-  }
 }

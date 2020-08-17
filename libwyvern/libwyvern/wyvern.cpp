@@ -1,17 +1,27 @@
 #include <libwyvern/wyvern.hpp>
 
-#include <ostream>
-#include <stdexcept>
-
-using namespace std;
 
 namespace wyvern
 {
-  void say_hello (ostream& o, const string& n)
+  DependenciesInfo extract_dependencies(const cmake::Configuration& config)
   {
-    if (n.empty ())
-      throw invalid_argument ("empty name");
+    // 1. Create a temporary cmake project with CMakeFiles.txt and an c++ source file.
+    //    It should have no dependencies at all, just as many executable targets as
+    //    the number of targets in the provided configuration.
+    // 2. Invoke CMake for that project, creating a build directory (without the options
+    //    specified in the provided configuration?).
+    // 3. Invoke CMake file-api in the resulting build directory to extract and store
+    //    JSON information -> A.
+    // 4. Modify the CMakeLists.txt to add:
+    //    - `find_package()` calls for each packages of the configuration provided;
+    //    - each executable target should depend on one associated CMake target from the configuration.
+    // 5. Invoke CMake again to create a different build directory, using options/variables
+    //    from the configuration.
+    // 6. Invoke CMake file-api on that new configuration and extract and store the
+    //    JSON information -> B.
+    // 7. Compare A and B, find what's in B that was not in B.
+    // Return the result of that comparison.
 
-    o << "Hello, " << n << '!' << endl;
+    return {};
   }
 }

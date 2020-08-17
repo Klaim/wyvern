@@ -13,3 +13,4 @@ depends: * bpkg >= 0.13.0
 requires: cmake ; CMake must be available in the system for this project to work.
 depends: libbutl >= 0.13.0
 depends: nlohmann-json ^3.7.3
+depends: nocontracts ^0.2.0
