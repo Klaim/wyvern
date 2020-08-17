@@ -2,7 +2,7 @@
 name: libwyvern
 version: 0.1.0-a.0.z
 project: wyvern
-summary: wyvern C++ library
+summary: Tools to extract CMake information for exposure to build2
 license: other: proprietary ; Not free/open source.
 description-file: README.md
 url: https://github.com/Klaim/wyvern
@@ -10,4 +10,6 @@ email: mjklaim@gmail.com
 depends: * build2 >= 0.13.0
 depends: * bpkg >= 0.13.0
 
-depends: libbutl
+requires: cmake ; CMake must be available in the system for this project to work.
+depends: libbutl >= 0.13.0
+depends: nlohmann-json ^3.7.3
