@@ -1,0 +1,6 @@
+$out_root/
+{
+  include libwyvern/
+}
+
+export $out_root/libwyvern/$import.target

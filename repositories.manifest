@@ -1,0 +1,12 @@
+: 1
+summary: wyvern project repository
+
+:
+role: prerequisite
+location: https://pkg.cppget.org/1/stable
+trust: 86:BA:D4:DE:2C:87:1A:EE:38:C7:F1:64:7F:65:77:02:15:79:F3:C4:83:C0:AB:5A:EA:F4:F7:8C:1D:63:30:C6
+
+:
+role: prerequisite
+location: https://pkg.cppget.org/1/alpha
+trust: 86:BA:D4:DE:2C:87:1A:EE:38:C7:F1:64:7F:65:77:02:15:79:F3:C4:83:C0:AB:5A:EA:F4:F7:8C:1D:63:30:C6
