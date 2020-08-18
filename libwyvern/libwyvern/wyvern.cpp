@@ -72,16 +72,24 @@ namespace wyvern::cmake {
     // throw if any error is found
   }
 
+  struct CodeModel
+  {
+    json index;
+    std::map<std::string, json> targets;
+  };
+
   auto query_cmake_file_api(std::string build_directory_path)
-    -> json
+    -> CodeModel
   {
     // 1. write the query file in the build directory
     // 2. invoke cemake in that directory
     invoke_cmake({ build_directory_path });
+    // 3. retrieve the JSON information
     return {};
   }
 
   auto configure_project(std::string project_path, std::string build_path, const Configuration& cmake_config)
+    -> void
   {
     const auto source_arg = fmt::format("-S {}", project_path);
     const auto build_dir_arg = fmt::format("-B {}", build_path);
@@ -97,17 +105,62 @@ namespace wyvern::cmake {
 
 namespace wyvern
 {
+  class scoped_temp_dir
+  {
+    std::string path_;
+  public:
+    scoped_temp_dir(const scoped_temp_dir&) = delete;
+    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
+
+    scoped_temp_dir()
+      : path_("~/tmp/gjisgnoefnv")
+    {
+      // create the temp dir here
+    }
+
+    ~scoped_temp_dir()
+    {
+      // delete the temp dir here
+    }
+
+    const std::string& path() const { return this->path_; }
+
+  };
+
+
+  auto normalize_name(std::string name) -> std::string
+  {
+    // ...
+    return name;
+  }
+
+  auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode)
+    -> cmake::CodeModel
+  {
+    // 1. Create a temporary cmake project with CMakeFiles.txt and an c++ source file.
+    //    It should have no dependencies at all, just as many executable targets as
+    //    the number of targets in the provided configuration.
+    const scoped_temp_dir project_dir;
+    cmake::create_cmake_project(project_dir.path(), config, mode);
+
+    // 2. Invoke CMake for that project, creating a build directory (without the options
+    //    specified in the provided configuration?).
+    const auto build_dir_path = fmt::format("{}/{}", project_dir.path(), normalize_name(config.generator));
+    cmake::configure_project(project_dir.path(), build_dir_path, config);
+
+    // 3. Invoke CMake file-api in the resulting build directory to extract and store
+    //    JSON information -> A.
+    const auto codemodel = cmake::query_cmake_file_api(build_dir_path);
+
+    return codemodel;
+  }
 
   DependenciesInfo extract_dependencies(const cmake::Configuration& config)
   {
     log() << "Begin cmake dependencies extraction";
-    // 1. Create a temporary cmake project with CMakeFiles.txt and an c++ source file.
-    //    It should have no dependencies at all, just as many executable targets as
-    //    the number of targets in the provided configuration.
-    // 2. Invoke CMake for that project, creating a build directory (without the options
-    //    specified in the provided configuration?).
-    // 3. Invoke CMake file-api in the resulting build directory to extract and store
-    //    JSON information -> A.
+
+    const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies);
+
     // 4. Modify the CMakeLists.txt to add:
     //    - `find_package()` calls for each packages of the configuration provided;
     //    - each executable target should depend on one associated CMake target from the configuration.
@@ -115,6 +168,8 @@ namespace wyvern
     //    from the configuration.
     // 6. Invoke CMake file-api on that new configuration and extract and store the
     //    JSON information -> B.
+    const auto codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies);
+
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.
 
