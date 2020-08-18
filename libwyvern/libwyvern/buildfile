@@ -1,6 +1,6 @@
 intf_libs = # Interface dependencies.
 impl_libs = # Implementation dependencies.
-import impl_libs += libbutl%lib{butl} nlohmann-json%lib{json}
+import impl_libs += libbutl%lib{butl} nlohmann-json%lib{json} fmt%lib{fmt}
 
 lib{wyvern}: {hxx ixx txx cxx}{** -version} hxx{version} $impl_libs $intf_libs
 
