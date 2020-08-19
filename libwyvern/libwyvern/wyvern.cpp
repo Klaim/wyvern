@@ -155,7 +155,14 @@ namespace wyvern
     return codemodel;
   }
 
-  DependenciesInfo extract_dependencies(const cmake::Configuration& config)
+  auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& project_codemodel)
+    -> DependenciesInfo
+  {
+    return {};
+  }
+
+  auto extract_dependencies(const cmake::Configuration& config)
+    -> DependenciesInfo
   {
     log() << "Begin cmake dependencies extraction";
 
@@ -172,6 +179,7 @@ namespace wyvern
 
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.
+    const auto dependencies = compare_dependencies(control_codemodel, codemodel);
 
     log() << "End cmake dependencies extraction";
 
