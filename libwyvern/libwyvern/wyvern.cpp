@@ -1,5 +1,8 @@
-#include <iostream>
 #include <libwyvern/wyvern.hpp>
+
+#include <iostream>
+#include <string>
+#include <sstream>
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
 #include <libbutl/path.mxx>
@@ -11,9 +14,9 @@ namespace wyvern {
 
   struct Logger
   {
-    std::string logged { "wyvern: " };
+    std::stringstream logged;
 
-    Logger() = default;
+    Logger() { logged << "wyvern :"; }
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
 
@@ -21,13 +24,13 @@ namespace wyvern {
     friend auto operator<<(Logger&& logger, Arg&& to_log)
       -> Logger&&
     {
-      logger.logged = fmt::format("{}{}", logger.logged, std::forward<Arg>(to_log));
+      logger.logged << std::forward<Arg>(to_log);
       return std::move(logger);
     }
 
     ~Logger()
     {
-      std::cout << logged <<std::endl;
+      std::cout << logged.str() <<std::endl;
     }
   };
 
