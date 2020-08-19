@@ -11,6 +11,8 @@ namespace wyvern {
 
   struct Logger
   {
+    std::string logged { "wyvern: " };
+
     Logger() = default;
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
@@ -19,13 +21,13 @@ namespace wyvern {
     friend auto operator<<(Logger&& logger, Arg&& to_log)
       -> Logger&&
     {
-      std::cout << fmt::format("wyvern: {}", std::forward<Arg>(to_log));
+      logger.logged = fmt::format("{}{}", logger.logged, std::forward<Arg>(to_log));
       return std::move(logger);
     }
 
     ~Logger()
     {
-      std::cout << std::endl;
+      std::cout << logged <<std::endl;
     }
   };
 
@@ -164,7 +166,7 @@ namespace wyvern
   auto extract_dependencies(const cmake::Configuration& config)
     -> DependenciesInfo
   {
-    log() << "Begin cmake dependencies extraction";
+    log() << "Begin cmake dependencies extraction" << " now";
 
     const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies);
 
@@ -181,7 +183,7 @@ namespace wyvern
     // Return the result of that comparison.
     const auto dependencies = compare_dependencies(control_codemodel, codemodel);
 
-    log() << "End cmake dependencies extraction";
+    log() << "End cmake dependencies extraction" << " here";
 
     return {};
   }
