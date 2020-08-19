@@ -3,14 +3,25 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <random>
+
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
 #include <libbutl/path.mxx>
-#include <fmt/core.h>
+#include <libbutl/filesystem.mxx>
+#include <fmt/format.h>
 
 using json = nlohmann::json;
+using path = butl::path; // File path
+using dir_path = butl::dir_path; // Directory path
 
 namespace wyvern {
+namespace {
+
+  struct failure : std::runtime_error
+  {
+    using std::runtime_error::runtime_error;
+  };
 
   struct Logger
   {
@@ -36,9 +47,39 @@ namespace wyvern {
 
   auto log() -> Logger { return {}; }
 
-}
+  int random_int(int min_value, int max_value){
+    static std::random_device device;
+    static std::seed_seq seed{device(), device(), device(), device(), device(), device(), device(), device()};
+    static std::default_random_engine engine(seed);
+    std::uniform_int_distribution<int> distribution(min_value, max_value);
+    return distribution(engine);
+  }
+
+  auto normalize_name(std::string name) -> std::string
+  {
+    // ...
+    return name;
+  }
+
+  auto write_to_file(path file_path, std::string content) -> void
+  {
+    log() << fmt::format("write into {}", file_path.complete().posix_string());
+    // throw on failure
+  }
+
+  auto create_directories(dir_path directory_path) -> void
+  {
+    const auto result = butl::try_mkdir_p(directory_path);
+    if(result != butl::mkdir_status::success){
+      throw failure(fmt::format("Failed to create directory {}", directory_path.complete().posix_string()));
+    }
+  }
+
+}}
 
 namespace wyvern::cmake {
+
+  constexpr auto minimum_cmake_version = "3.10";
 
   enum class cmakefile_mode
   {
@@ -49,32 +90,55 @@ namespace wyvern::cmake {
   auto generate_cmakefile_code(const Configuration& cmake_config, cmakefile_mode mode)
     -> std::string // content of the CMakeFile.txt
   {
-    return "empty!";
+    std::stringstream code;
+    code << fmt::format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
+    code << fmt::format("project({})\n\n", random_int(0, 99999999));
+
+    for(const auto& target : cmake_config.targets)
+    {
+      const auto suffix = normalize_name(target);
+      code << fmt::format("add_executable(use_{} main.cpp header.hpp)\n", suffix);
+      if(mode == cmakefile_mode::with_dependencies)
+      {
+        code << fmt::format("target_link_libraries(use_{} PRIVATE {})\n", suffix, target);
+      }
+    }
+    code << "\n\n";
+    return code.str();
   }
 
-  auto create_cmake_project(std::string directory_path, const Configuration& cmake_config, cmakefile_mode mode)
+  auto create_cmake_project(dir_path directory_path, const Configuration& cmake_config, cmakefile_mode mode)
     -> void
   {
-    // 1. create the cmakefile with the right content
-    // 2. create main.cpp and header.hpp
-  }
+    // 1. create main.cpp and header.hpp
+    static constexpr auto main_content = R"cpp(
+#include "header.hpp"
+int main() { }
+    )cpp";
 
-  constexpr auto cmake_file_api_query_json = R"JSON(
-{
-  "requests" : [
-      {
-          "kind": "codemodel",
-          "version": { "major": 2 }
-      }
-  ]
-}
-)JSON";
+    static constexpr auto header_content = R"cpp(
+#pragma once
+// This is a header to check the output with a header file (which should not be compiled).
+    )cpp";
+
+    const auto main_cpp_path = path("???");
+    const auto header_hpp_path = path("???");
+
+    write_to_file(main_cpp_path, main_content);
+    write_to_file(header_hpp_path, header_content);
+
+    // 2. create the cmakefile with the right content
+    const auto cmakefile_path = path("???");
+    const auto cmakefile_content = generate_cmakefile_code(cmake_config, mode);
+    write_to_file(cmakefile_path, cmakefile_content);
+  }
 
   auto invoke_cmake(std::vector<std::string> args) -> void
   {
     // const auto cmake_command = fmt::format("cmake {}", directory_path);
     // run the command cmake
     // throw if any error is found
+    log() << fmt::format("cmake {}", fmt::join(args, " "));
   }
 
   struct CodeModel
@@ -83,21 +147,40 @@ namespace wyvern::cmake {
     std::map<std::string, json> targets;
   };
 
-  auto query_cmake_file_api(std::string build_directory_path)
+  auto query_cmake_file_api(dir_path build_directory_path)
     -> CodeModel
   {
+
+    static constexpr auto cmake_file_api_query_json = R"JSON(
+{
+  "requests" : [
+      {
+          "kind": "codemodel",
+          "version": { "major": 2 }
+      }
+  ]
+}
+    )JSON";
+
     // 1. write the query file in the build directory
-    // 2. invoke cemake in that directory
-    invoke_cmake({ build_directory_path });
+    const dir_path query_directory_path = build_directory_path / dir_path(".cmake/api/v1/query/client-wyvern/");
+    create_directories(query_directory_path);
+
+    const path query_file_path = query_directory_path / "query.json";
+    write_to_file(query_file_path, cmake_file_api_query_json);
+
+    // 2. invoke cmake in that directory
+    invoke_cmake({ build_directory_path.posix_string() });
+
     // 3. retrieve the JSON information
     return {};
   }
 
-  auto configure_project(std::string project_path, std::string build_path, const Configuration& cmake_config)
+  auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
     -> void
   {
-    const auto source_arg = fmt::format("-S {}", project_path);
-    const auto build_dir_arg = fmt::format("-B {}", build_path);
+    const auto source_arg = fmt::format("-S {}", project_path.complete().posix_string());
+    const auto build_dir_arg = fmt::format("-B {}", build_path.complete().posix_string());
 
     auto args = std::vector{ source_arg, build_dir_arg };
     // add args from config
@@ -112,32 +195,25 @@ namespace wyvern
 {
   class scoped_temp_dir
   {
-    std::string path_;
+    dir_path path_ = dir_path::temp_path("wyvern");
   public:
     scoped_temp_dir(const scoped_temp_dir&) = delete;
     scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
 
     scoped_temp_dir()
-      : path_("~/tmp/gjisgnoefnv")
     {
-      // create the temp dir here
+      create_directories(path_);
     }
 
     ~scoped_temp_dir()
     {
-      // delete the temp dir here
+      butl::rmdir_r(path_);
     }
 
-    const std::string& path() const { return this->path_; }
+    const dir_path& path() const { return this->path_; }
 
   };
 
-
-  auto normalize_name(std::string name) -> std::string
-  {
-    // ...
-    return name;
-  }
 
   auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode)
     -> cmake::CodeModel
@@ -150,7 +226,7 @@ namespace wyvern
 
     // 2. Invoke CMake for that project, creating a build directory (without the options
     //    specified in the provided configuration?).
-    const auto build_dir_path = fmt::format("{}/{}", project_dir.path(), normalize_name(config.generator));
+    const auto build_dir_path = project_dir.path() / dir_path(normalize_name(config.generator));
     cmake::configure_project(project_dir.path(), build_dir_path, config);
 
     // 3. Invoke CMake file-api in the resulting build directory to extract and store
