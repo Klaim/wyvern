@@ -76,6 +76,12 @@ namespace {
     return normalized_name;
   }
 
+  auto quoted(const std::string text)
+    -> std::string
+  {
+    return fmt::format("\"{}\"", text);
+  }
+
   auto write_to_file(path file_path, const std::string& content) -> void
   {
     log() << fmt::format("writing into file {}", file_path.complete().string());
@@ -154,17 +160,27 @@ int main() { }
     write_to_file(header_hpp_path, header_content);
 
     // 2. create the cmakefile with the right content
-    const auto cmakefile_path = directory_path / path("CMakeFiles.txt");
+    const auto cmakefile_path = directory_path / path("CMakeLists.txt");
     const auto cmakefile_content = generate_cmakefile_code(cmake_config, mode);
     write_to_file(cmakefile_path, cmakefile_content);
   }
 
-  auto invoke_cmake(std::vector<std::string> args) -> void
+  auto invoke_cmake(const std::vector<std::string>& args) -> void
   {
     // const auto cmake_command = fmt::format("cmake {}", directory_path);
     // run the command cmake
     // throw if any error is found
     log() << fmt::format("cmake {}", fmt::join(args, " "));
+    std::vector<const char*> command{ "cmake" };
+    for(const auto& arg : args)
+    {
+      command.push_back(arg.c_str());
+    }
+    butl::process cmake_process(command.data());
+    if(!cmake_process.wait())
+    {
+      throw failure("CMake process failed");
+    }
   }
 
   struct CodeModel
@@ -205,9 +221,9 @@ int main() { }
   auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
     -> void
   {
-    const auto source_arg = fmt::format("-S {}", project_path.complete().string());
-    const auto build_dir_arg = fmt::format("-B {}", build_path.complete().string());
-    auto args = std::vector{ source_arg, build_dir_arg };
+    const auto source_arg = quoted(project_path.complete().string());
+    const auto build_dir_arg = quoted(build_path.complete().string());
+    auto args = std::vector<std::string>{ "-S", source_arg, "-B", build_dir_arg };
     // TODO: add args from config
     invoke_cmake(args);
   }
@@ -232,7 +248,7 @@ namespace wyvern
 
     ~scoped_temp_dir()
     {
-      // butl::rmdir_r(path_);
+      butl::rmdir_r(path_);
     }
 
     const dir_path& path() const { return this->path_; }
