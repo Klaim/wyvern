@@ -67,8 +67,8 @@ namespace {
     // NOTE: will not work with unicode.....
     const auto lowercase_name = to_lower_case(name);
 
-    static const auto regex_string = R"regex([\s | - | \. | \:]+)regex";
-    static const auto replacement = R"r(_)r";
+    static const auto regex_string = R"regex([\s | - | \. | \: | \( | \) )]+)regex";
+    static const auto replacement = "_";
     static const std::regex to_replace(regex_string);
 
     const auto normalized_name = std::regex_replace(lowercase_name, to_replace, replacement);
@@ -113,7 +113,12 @@ namespace wyvern::cmake {
     // TODO: replace by fmt::printf(filedesc, "...", ...);
     std::stringstream code;
     code << fmt::format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
-    code << fmt::format("project({})\n\n", random_int(0, 99999999));
+    code << fmt::format("project(wyvern_{})\n\n", random_int(0, 99999999));
+
+    for(const auto& package : cmake_config.packages)
+    {
+      code << fmt::format("find_package({} {} REQUIRED {})\n\n", package.name, package.version, fmt::join(package.constraints, " "));
+    }
 
     for(const auto& target : cmake_config.targets)
     {
@@ -227,7 +232,7 @@ namespace wyvern
 
     ~scoped_temp_dir()
     {
-      butl::rmdir_r(path_);
+      // butl::rmdir_r(path_);
     }
 
     const dir_path& path() const { return this->path_; }
@@ -272,6 +277,7 @@ namespace wyvern
     //    specified in the provided configuration?).
     // 3. Invoke CMake file-api in the resulting build directory to extract and store
     //    JSON information -> A.
+    log() << "==== Extracting Control Information ====";
     const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies);
 
     // 4. Modify the CMakeLists.txt to add:
@@ -281,10 +287,12 @@ namespace wyvern
     //    from the configuration.
     // 6. Invoke CMake file-api on that new configuration and extract and store the
     //    JSON information -> B.
+    log() << "==== Extracting Dependencies Information ====";
     const auto dependencies_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies);
 
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.
+    log() << "==== Comparing Control & Dependencies Information ====";
     const auto dependencies = compare_dependencies(control_codemodel, dependencies_codemodel);
 
     log() << "End cmake dependencies extraction" << " here";

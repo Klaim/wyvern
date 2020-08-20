@@ -13,6 +13,7 @@ namespace wyvern::cmake {
   struct Package
   {
     std::string name; // Name of the package.
+    std::string version; // Version of the package, or unspecified.
     std::vector<std::string> constraints; // Constraints like "VERSION 2.5" etc. see `find_package()` arguments in CMake documentation.
   };
 
