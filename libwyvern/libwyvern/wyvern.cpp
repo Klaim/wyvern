@@ -4,11 +4,13 @@
 #include <string>
 #include <sstream>
 #include <random>
+#include <regex>
 
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
 #include <libbutl/path.mxx>
 #include <libbutl/filesystem.mxx>
+#include <libbutl/fdstream.mxx>
 #include <fmt/format.h>
 
 using json = nlohmann::json;
@@ -27,7 +29,7 @@ namespace {
   {
     std::stringstream logged;
 
-    Logger() { logged << "wyvern :"; }
+    Logger() { logged << "wyvern: "; }
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
 
@@ -55,23 +57,37 @@ namespace {
     return distribution(engine);
   }
 
-  auto normalize_name(std::string name) -> std::string
+  std::string to_lower_case(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](auto c){ return std::tolower(c); });
+    return s;
+}
+
+  auto normalize_name(const std::string& name) -> std::string
   {
-    // ...
-    return name;
+    // NOTE: will not work with unicode.....
+    const auto lowercase_name = to_lower_case(name);
+    static const std::regex to_replace(R"regex( \s | - | \. | \: )regex");
+    const auto normalized_name = std::regex_replace(lowercase_name, to_replace, "_");
+    log() << fmt::format("normalized \"{}\" to \"{}\"", name, normalize_name);
+    return normalized_name;
   }
 
-  auto write_to_file(path file_path, std::string content) -> void
+  auto write_to_file(path file_path, const std::string& content) -> void
   {
-    log() << fmt::format("write into {}", file_path.complete().posix_string());
-    // throw on failure
+    log() << fmt::format("writing into file {}", file_path.complete().string());
+    using namespace butl;
+    static const auto open_mode = fdopen_mode::truncate | fdopen_mode::create;
+    ofdstream file { file_path, open_mode };
+    file << content; // Assuming we are in text mode.
+    file.close(); // Throws exceptions if there have been errors while writing.
   }
 
   auto create_directories(dir_path directory_path) -> void
   {
+    log() << fmt::format("creating directories {}", directory_path.complete().string());
     const auto result = butl::try_mkdir_p(directory_path);
     if(result != butl::mkdir_status::success){
-      throw failure(fmt::format("Failed to create directory {}", directory_path.complete().posix_string()));
+      throw failure(fmt::format("Failed to create directory {}", directory_path.complete().string()));
     }
   }
 
@@ -90,6 +106,7 @@ namespace wyvern::cmake {
   auto generate_cmakefile_code(const Configuration& cmake_config, cmakefile_mode mode)
     -> std::string // content of the CMakeFile.txt
   {
+    // TODO: replace by fmt::printf(filedesc, "...", ...);
     std::stringstream code;
     code << fmt::format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
     code << fmt::format("project({})\n\n", random_int(0, 99999999));
@@ -97,10 +114,10 @@ namespace wyvern::cmake {
     for(const auto& target : cmake_config.targets)
     {
       const auto suffix = normalize_name(target);
-      code << fmt::format("add_executable(use_{} main.cpp header.hpp)\n", suffix);
+      code << fmt::format("add_executable(wyvern_{} main.cpp header.hpp)\n", suffix);
       if(mode == cmakefile_mode::with_dependencies)
       {
-        code << fmt::format("target_link_libraries(use_{} PRIVATE {})\n", suffix, target);
+        code << fmt::format("target_link_libraries(wyvern_{} PRIVATE {})\n", suffix, target);
       }
     }
     code << "\n\n";
@@ -121,14 +138,14 @@ int main() { }
 // This is a header to check the output with a header file (which should not be compiled).
     )cpp";
 
-    const auto main_cpp_path = path("???");
-    const auto header_hpp_path = path("???");
+    const auto main_cpp_path = directory_path / path("main.cpp");
+    const auto header_hpp_path = directory_path / path("header.hpp");
 
     write_to_file(main_cpp_path, main_content);
     write_to_file(header_hpp_path, header_content);
 
     // 2. create the cmakefile with the right content
-    const auto cmakefile_path = path("???");
+    const auto cmakefile_path = directory_path / path("CMakeFiles.txt");
     const auto cmakefile_content = generate_cmakefile_code(cmake_config, mode);
     write_to_file(cmakefile_path, cmakefile_content);
   }
@@ -170,7 +187,7 @@ int main() { }
     write_to_file(query_file_path, cmake_file_api_query_json);
 
     // 2. invoke cmake in that directory
-    invoke_cmake({ build_directory_path.posix_string() });
+    invoke_cmake({ build_directory_path.complete().string() });
 
     // 3. retrieve the JSON information
     return {};
@@ -179,11 +196,10 @@ int main() { }
   auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
     -> void
   {
-    const auto source_arg = fmt::format("-S {}", project_path.complete().posix_string());
-    const auto build_dir_arg = fmt::format("-B {}", build_path.complete().posix_string());
-
+    const auto source_arg = fmt::format("-S {}", project_path.complete().string());
+    const auto build_dir_arg = fmt::format("-B {}", build_path.complete().string());
     auto args = std::vector{ source_arg, build_dir_arg };
-    // add args from config
+    // TODO: add args from config
     invoke_cmake(args);
   }
 
@@ -195,7 +211,7 @@ namespace wyvern
 {
   class scoped_temp_dir
   {
-    dir_path path_ = dir_path::temp_path("wyvern");
+    dir_path path_ = dir_path::temp_path("wyvern").complete();
   public:
     scoped_temp_dir(const scoped_temp_dir&) = delete;
     scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
@@ -218,19 +234,16 @@ namespace wyvern
   auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode)
     -> cmake::CodeModel
   {
-    // 1. Create a temporary cmake project with CMakeFiles.txt and an c++ source file.
-    //    It should have no dependencies at all, just as many executable targets as
-    //    the number of targets in the provided configuration.
+    // step 1
     const scoped_temp_dir project_dir;
     cmake::create_cmake_project(project_dir.path(), config, mode);
 
-    // 2. Invoke CMake for that project, creating a build directory (without the options
-    //    specified in the provided configuration?).
-    const auto build_dir_path = project_dir.path() / dir_path(normalize_name(config.generator));
+    // step 2
+    const auto build_dir_name = fmt::format("build-{}", normalize_name(config.generator));
+    const auto build_dir_path = project_dir.path() / dir_path(build_dir_name);
     cmake::configure_project(project_dir.path(), build_dir_path, config);
 
-    // 3. Invoke CMake file-api in the resulting build directory to extract and store
-    //    JSON information -> A.
+    // step 3
     const auto codemodel = cmake::query_cmake_file_api(build_dir_path);
 
     return codemodel;
@@ -247,6 +260,14 @@ namespace wyvern
   {
     log() << "Begin cmake dependencies extraction" << " now";
 
+
+    // 1. Create a temporary cmake project with CMakeFiles.txt and an c++ source file.
+    //    It should have no dependencies at all, just as many executable targets as
+    //    the number of targets in the provided configuration.
+    // 2. Invoke CMake for that project, creating a build directory (without the options
+    //    specified in the provided configuration?).
+    // 3. Invoke CMake file-api in the resulting build directory to extract and store
+    //    JSON information -> A.
     const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies);
 
     // 4. Modify the CMakeLists.txt to add:
@@ -256,11 +277,11 @@ namespace wyvern
     //    from the configuration.
     // 6. Invoke CMake file-api on that new configuration and extract and store the
     //    JSON information -> B.
-    const auto codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies);
+    const auto dependencies_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies);
 
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.
-    const auto dependencies = compare_dependencies(control_codemodel, codemodel);
+    const auto dependencies = compare_dependencies(control_codemodel, dependencies_codemodel);
 
     log() << "End cmake dependencies extraction" << " here";
 
