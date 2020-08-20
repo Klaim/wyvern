@@ -13,7 +13,12 @@ int main ()
 
   try
   {
-    const auto deps_info = extract_dependencies();
+    cmake::Configuration config;
+    config.generator = "Visual Studio 16 2019 Win64";
+    config.packages = { { "fmt" } };
+    config.targets = { "fmt::fmt" };
+
+    const auto deps_info = extract_dependencies(config);
     NC_ASSERT_TRUE( deps_info.empty() );
     return EXIT_SUCCESS;
   }

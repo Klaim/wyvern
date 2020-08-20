@@ -66,9 +66,13 @@ namespace {
   {
     // NOTE: will not work with unicode.....
     const auto lowercase_name = to_lower_case(name);
-    static const std::regex to_replace(R"regex( \s | - | \. | \: )regex");
-    const auto normalized_name = std::regex_replace(lowercase_name, to_replace, "_");
-    log() << fmt::format("normalized \"{}\" to \"{}\"", name, normalize_name);
+
+    static const auto regex_string = R"regex([\s | - | \. | \:]+)regex";
+    static const auto replacement = R"r(_)r";
+    static const std::regex to_replace(regex_string);
+
+    const auto normalized_name = std::regex_replace(lowercase_name, to_replace, replacement);
+    log() << fmt::format("normalized \"{}\" to \"{}\"", name, normalized_name);
     return normalized_name;
   }
 
