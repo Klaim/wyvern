@@ -224,7 +224,13 @@ int main() { }
   {
     const auto source_arg = project_path.complete().string();
     const auto build_dir_arg = build_path.complete().string();
+
     auto args = cmake_config.args;
+    for(const auto& option : cmake_config.options)
+    {
+      args.push_back(fmt::format("-D{}={}", option.first, option.second));
+    }
+
     args.insert(args.end(), { "-S", source_arg, "-B", build_dir_arg });
     invoke_cmake(args);
   }
@@ -244,8 +250,9 @@ namespace wyvern
   scoped_temp_dir::~scoped_temp_dir()
   {
     if(!path_.empty()){
-      // butl::rmdir_r(path_);
-      log() << fmt::format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
+      butl::rmdir_r(path_);
+      log() << fmt::format("Deleted directory {}", path_.complete().string());
+      // log() << fmt::format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
     }
   }
 
