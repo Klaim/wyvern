@@ -8,14 +8,11 @@
 
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
-#include <libbutl/path.mxx>
 #include <libbutl/filesystem.mxx>
 #include <libbutl/fdstream.mxx>
 #include <fmt/format.h>
 
 using json = nlohmann::json;
-using path = butl::path; // File path
-using dir_path = butl::dir_path; // Directory path
 
 namespace wyvern {
 namespace {
@@ -238,28 +235,32 @@ int main() { }
 
 namespace wyvern
 {
-  class scoped_temp_dir
+  scoped_temp_dir::scoped_temp_dir()
+      : path_(dir_path::temp_path("wyvern").complete())
   {
-    dir_path path_ = dir_path::temp_path("wyvern").complete();
-  public:
-    scoped_temp_dir(const scoped_temp_dir&) = delete;
-    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
+    create_directories(path_);
+  }
 
-    scoped_temp_dir()
-    {
-      create_directories(path_);
-    }
-
-    ~scoped_temp_dir()
-    {
+  scoped_temp_dir::~scoped_temp_dir()
+  {
+    if(!path_.empty()){
       // butl::rmdir_r(path_);
-      log() << "COMMENTED REMOVAL OF PROJECT DIR, PLEASE FIXME";
+      log() << fmt::format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
     }
+  }
 
-    const dir_path& path() const { return this->path_; }
+  scoped_temp_dir::scoped_temp_dir(scoped_temp_dir&& other)
+    : path_(std::move(other.path_))
+  {
+    other.path_.clear();
+  }
 
-  };
-
+  scoped_temp_dir& scoped_temp_dir::operator=(scoped_temp_dir&& other)
+  {
+    this->path_ = std::move(other.path_);
+    other.path_.clear();
+    return *this;
+  }
 
   auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode)
     -> cmake::CodeModel

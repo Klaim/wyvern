@@ -1,8 +1,11 @@
 #pragma once
 
+
 #include <utility>
 #include <vector>
 #include <string>
+
+#include <libbutl/path.mxx>
 
 #include <libwyvern/export.hpp>
 
@@ -25,6 +28,9 @@ namespace wyvern::cmake {
     std::vector<Option> options; // CMake options and variables to pass to CMake on invokation.
     std::vector<std::string> args; // Additional arguments
   };
+
+  LIBWYVERN_SYMEXPORT
+  auto invoke_cmake(const std::vector<std::string>& args) -> void;
 
 }
 
@@ -57,5 +63,26 @@ namespace wyvern
 
   LIBWYVERN_SYMEXPORT
   DependenciesInfo extract_dependencies(const cmake::Configuration& config);
+
+  using path = butl::path; // File path
+  using dir_path = butl::dir_path; // Directory path
+
+  class LIBWYVERN_SYMEXPORT scoped_temp_dir
+  {
+    dir_path path_;
+  public:
+
+    // Move-only
+    scoped_temp_dir(const scoped_temp_dir&) = delete;
+    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
+    scoped_temp_dir(scoped_temp_dir&&);
+    scoped_temp_dir& operator=(scoped_temp_dir&&);
+
+    scoped_temp_dir();
+    ~scoped_temp_dir();
+
+    const dir_path& path() const { return this->path_; }
+  };
+
 
 }
