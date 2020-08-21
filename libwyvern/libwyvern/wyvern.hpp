@@ -23,6 +23,7 @@ namespace wyvern::cmake {
     std::vector<Package> packages; // CMake packages to extract informations from.
     std::vector<std::string> targets; // Qualified names of CMake targets to extract information from.
     std::vector<Option> options; // CMake options and variables to pass to CMake on invokation.
+    std::vector<std::string> args; // Additional arguments
   };
 
 }

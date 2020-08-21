@@ -121,9 +121,12 @@ namespace wyvern::cmake {
     code << fmt::format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
     code << fmt::format("project(wyvern_{})\n\n", random_int(0, 99999999));
 
-    for(const auto& package : cmake_config.packages)
+    if(mode == cmakefile_mode::with_dependencies)
     {
-      code << fmt::format("find_package({} {} REQUIRED {})\n\n", package.name, package.version, fmt::join(package.constraints, " "));
+      for(const auto& package : cmake_config.packages)
+      {
+        code << fmt::format("find_package({} {} REQUIRED {})\n\n", package.name, package.version, fmt::join(package.constraints, " "));
+      }
     }
 
     for(const auto& target : cmake_config.targets)
@@ -224,8 +227,8 @@ int main() { }
   {
     const auto source_arg = project_path.complete().string();
     const auto build_dir_arg = build_path.complete().string();
-    auto args = std::vector<std::string>{ "-S", source_arg, "-B", build_dir_arg };
-    // TODO: add args from config
+    auto args = cmake_config.args;
+    args.insert(args.end(), { "-S", source_arg, "-B", build_dir_arg });
     invoke_cmake(args);
   }
 
@@ -249,7 +252,8 @@ namespace wyvern
 
     ~scoped_temp_dir()
     {
-      butl::rmdir_r(path_);
+      // butl::rmdir_r(path_);
+      log() << "COMMENTED REMOVAL OF PROJECT DIR, PLEASE FIXME";
     }
 
     const dir_path& path() const { return this->path_; }
