@@ -15,7 +15,7 @@ int main ()
   {
     cmake::Configuration config;
     config.generator = "Visual Studio 16 2019 Win64";
-    config.packages = { { "fmt" } };
+    config.packages = { { "FMT" } };
     config.targets = { "fmt::fmt" };
 
     const auto deps_info = extract_dependencies(config);

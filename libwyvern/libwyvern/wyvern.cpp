@@ -167,7 +167,6 @@ int main() { }
 
   auto invoke_cmake(const std::vector<std::string>& args) -> void
   {
-    // const auto cmake_command = fmt::format("cmake {}", directory_path);
     // run the command cmake
     // throw if any error is found
     log() << fmt::format("cmake {}", fmt::join(args, " "));
@@ -176,6 +175,8 @@ int main() { }
     {
       command.push_back(arg.c_str());
     }
+    command.push_back(nullptr);
+
     butl::process cmake_process(command.data());
     if(!cmake_process.wait())
     {
@@ -221,8 +222,8 @@ int main() { }
   auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
     -> void
   {
-    const auto source_arg = quoted(project_path.complete().string());
-    const auto build_dir_arg = quoted(build_path.complete().string());
+    const auto source_arg = project_path.complete().string();
+    const auto build_dir_arg = build_path.complete().string();
     auto args = std::vector<std::string>{ "-S", source_arg, "-B", build_dir_arg };
     // TODO: add args from config
     invoke_cmake(args);
