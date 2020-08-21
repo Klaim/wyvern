@@ -220,8 +220,13 @@ int main() { }
     // 1. read the index to find the right codemodel file
     const auto index_path = find_index_file_path(reply_dir);
     codemodel.index = read_json_file(index_path);
-    log() << "INDEX : " << codemodel.index;
+    // log() << "INDEX : " << codemodel.index;
+
     // 2. read the codemodel file to find the right target files
+    const auto codemodel_filename = codemodel.index["reply"]["client-wyvern"]["query.json"]["responses"][0]["jsonFile"];
+    const auto codemodel_path = reply_dir / path(codemodel_filename);
+    log() << "CodeModel file : " << codemodel_path.string();
+
     // 3. gather information about each target.
 
     return codemodel;
