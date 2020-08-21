@@ -98,6 +98,15 @@ namespace {
     }
   }
 
+  json read_json_file(path file_path)
+  {
+    using namespace butl;
+    ifdstream file { file_path };
+    json json_content;
+    json_content << file;
+    return json_content;
+  }
+
 }}
 
 namespace wyvern::cmake {
@@ -190,6 +199,34 @@ int main() { }
     std::map<std::string, json> targets;
   };
 
+  auto find_index_file_path(dir_path reply_dir)
+  {
+    // There can be only 1 json file starting with "index" in that directory.
+    path found_path;
+    butl::path_search(path("index-*.json"), [&](path path, const std::string&, bool){
+      found_path = path;
+      return false;
+    }, reply_dir);
+
+    if(found_path.empty())
+      throw failure(fmt::format("Failed to find index json file in {}", reply_dir.complete().string()));
+    return (reply_dir / found_path).complete();
+  }
+
+  auto read_cmake_api_reply_json(dir_path reply_dir)
+    -> CodeModel
+  {
+    CodeModel codemodel;
+    // 1. read the index to find the right codemodel file
+    const auto index_path = find_index_file_path(reply_dir);
+    codemodel.index = read_json_file(index_path);
+    log() << "INDEX : " << codemodel.index;
+    // 2. read the codemodel file to find the right target files
+    // 3. gather information about each target.
+
+    return codemodel;
+  }
+
   auto query_cmake_file_api(dir_path build_directory_path)
     -> CodeModel
   {
@@ -216,7 +253,8 @@ int main() { }
     invoke_cmake({ build_directory_path.complete().string() });
 
     // 3. retrieve the JSON information
-    return {};
+    const dir_path reply_directory_path = build_directory_path / dir_path(".cmake/api/v1/reply/");
+    return read_cmake_api_reply_json(reply_directory_path);
   }
 
   auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
