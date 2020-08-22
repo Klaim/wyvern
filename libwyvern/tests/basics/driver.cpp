@@ -11,7 +11,7 @@ using namespace wyvern;
 namespace {
 
   const auto test_project_package_name = "test_cmake_project";
-  const auto test_project_targets = std::vector<std::string>{ "xxx", "yyy" };
+  const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy" };
   const auto test_project_sources_dir = dir_path{ "./libwyvern/tests/test_cmake_project/" }.complete();
   const auto test_build_dir_name = "build-wyvern-test_cmake_project";
   const auto test_install_dir_name = "install-wyvern-test_cmake_project";
@@ -21,7 +21,7 @@ namespace {
       // config.generator = "Visual Studio 16 2019 Win64"; // Use default generator
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
-      config.args = { "--debug", };
+      // config.args = { "--debug", };
       return config;
   }();
 

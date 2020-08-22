@@ -29,7 +29,7 @@
 
 namespace test_cmake_project {
     TEST_CMAKE_PROJECTSYMEXPORT
-    void function_xxx();
+    void function_test_project_yyy();
 }
 
 

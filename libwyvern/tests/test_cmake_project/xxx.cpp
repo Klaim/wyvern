@@ -1,8 +1,8 @@
 
-#include "xxx.hpp"
+#include "test_project_xxx.hpp"
 
 namespace test_cmake_project {
-    void function_xxx()
+    void function_test_project_xxx()
     {
 
     }
