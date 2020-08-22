@@ -5,7 +5,6 @@
 #include <sstream>
 #include <random>
 #include <regex>
-#include <ranges>
 
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
@@ -81,6 +80,15 @@ namespace {
     return format("\"{}\"", text);
   }
 
+  auto escape_braces(std::string text) -> std::string
+  {
+    static const auto left_brace_regex = std::regex("[{]");
+    static const auto right_brace_regex = std::regex("[}]");
+    text = std::regex_replace(text, left_brace_regex, "{{");
+    text = std::regex_replace(text, right_brace_regex, "}}");
+    return text;
+  }
+
   auto write_to_file(path file_path, const std::string& content) -> void
   {
     log() << format("writing into file {}", file_path.complete().string());
@@ -139,7 +147,7 @@ namespace wyvern::cmake {
     for(const auto& target : cmake_config.targets)
     {
       const auto suffix = normalize_name(target);
-      code << format("add_executable(wyvern_{} main.cpp header.hpp)\n", suffix);
+      code << format("add_executable(wyvern_{suffix} main_{suffix}.cpp header_{suffix}.hpp)\n", fmt::arg("suffix", suffix));
       if(mode == cmakefile_mode::with_dependencies)
       {
         code << format("target_link_libraries(wyvern_{} PRIVATE {})\n", suffix, target);
@@ -149,14 +157,14 @@ namespace wyvern::cmake {
     return code.str();
   }
 
-  auto create_cmake_project(dir_path directory_path, const Configuration& cmake_config, cmakefile_mode mode)
+  auto create_cmake_project(dir_path directory_path, const Configuration& cmake_config, cmakefile_mode mode, std::string test_code)
     -> void
   {
     // 1. create main.cpp and header.hpp
     static constexpr auto main_content = R"cpp(
-#include "header.hpp"
-#include <test_project.hpp>
-int main() { }
+#include "header_{target_name}.hpp"
+{}
+int main() {{  }}
     )cpp";
 
     static constexpr auto header_content = R"cpp(
@@ -164,11 +172,28 @@ int main() { }
 // This is a header to check the output with a header file (which should not be compiled).
     )cpp";
 
-    const auto main_cpp_path = directory_path / path("main.cpp");
-    const auto header_hpp_path = directory_path / path("header.hpp");
+    for(const auto& target : cmake_config.targets){
+      const auto target_name = normalize_name(target);
+      const auto main_cpp_path = directory_path / path(format("main_{}.cpp", target_name));
+      const auto header_hpp_path = directory_path / path(format("header_{}.hpp", target_name));
 
-    write_to_file(main_cpp_path, main_content);
-    write_to_file(header_hpp_path, header_content);
+      const auto code_to_inject = [&]()-> std::string {
+        if(mode == cmakefile_mode::without_dependencies)
+          return {};
+
+        auto code = test_code;
+        if(!code.empty())
+        {
+          code = format(code, fmt::arg("target_name", target_name));
+          code = escape_braces(code);
+        }
+        return code;
+      }();
+
+      const auto main_cpp_code = format(main_content, code_to_inject, fmt::arg("target_name", target_name));
+      write_to_file(main_cpp_path, main_cpp_code);
+      write_to_file(header_hpp_path, header_content);
+    }
 
     // 2. create the cmakefile with the right content
     const auto cmakefile_path = directory_path / path("CMakeLists.txt");
@@ -337,12 +362,12 @@ namespace wyvern
     return *this;
   }
 
-  auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode)
+  auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode, std::string test_code="")
     -> cmake::CodeModel
   {
     // step 1
     const scoped_temp_dir project_dir;
-    cmake::create_cmake_project(project_dir.path(), config, mode);
+    cmake::create_cmake_project(project_dir.path(), config, mode, test_code);
 
     // step 2
     const auto build_dir_name = format("build-{}", normalize_name(config.generator));
@@ -378,7 +403,7 @@ namespace wyvern
     return {};
   }
 
-  auto extract_dependencies(const cmake::Configuration& config)
+  auto extract_dependencies(const cmake::Configuration& config, std::string test_code)
     -> DependenciesInfo
   {
     log() << "Begin cmake dependencies extraction" << " now";
@@ -392,7 +417,7 @@ namespace wyvern
     // 3. Invoke CMake file-api in the resulting build directory to extract and store
     //    JSON information -> A.
     log() << "==== Extracting Control Information ====";
-    const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies);
+    const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies, test_code);
 
     // 4. Modify the CMakeLists.txt to add:
     //    - `find_package()` calls for each packages of the configuration provided;
@@ -402,7 +427,7 @@ namespace wyvern
     // 6. Invoke CMake file-api on that new configuration and extract and store the
     //    JSON information -> B.
     log() << "==== Extracting Dependencies Information ====";
-    const auto dependencies_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies);
+    const auto dependencies_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies, test_code);
 
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.

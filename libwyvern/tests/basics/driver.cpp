@@ -18,7 +18,7 @@ namespace {
 
   const auto test_config = []{
       cmake::Configuration config;
-      config.generator = "Visual Studio 16 2019 Win64";
+      // config.generator = "Visual Studio 16 2019 Win64"; // Use default generator
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
       config.args = { "--debug", };
@@ -34,14 +34,16 @@ namespace {
     const auto install_dir = project_dir.path() / test_install_dir_name;
 
     const auto args = std::vector<std::string>{
+      "-DCMAKE_INSTALL_PREFIX="+install_dir.string(),
       "-S", source_dir.string(),
       "-B", build_dir.string(),
     };
 
     // NOTE: we'll use the default generator, no need to precise it.
+    //       also we'll only install the release build, although the debug build would be available in some real projects
     cmake::invoke_cmake(args); // Configure
-    cmake::invoke_cmake({ "-DCMAKE_INSTALL_PREFIX="+install_dir.string(), "--build", build_dir.string() });
-    cmake::invoke_cmake({ "--install", build_dir.string() });
+    cmake::invoke_cmake({ "--build", build_dir.string(), "--config", "Release" }); // Build
+    cmake::invoke_cmake({ "--install", build_dir.string(), "--config", "Release" }); // Install
 
     return project_dir;
   }
@@ -61,7 +63,14 @@ int main ()
       { "CMAKE_PREFIX_PATH", test_install_dir.string() }
     };
 
-    const auto deps_info = extract_dependencies(config);
+    const auto check_code = R"cpp(
+#include <{target_name}.hpp>
+void check() {{
+  test_cmake_project::function_{target_name}();
+}}
+    )cpp";
+
+    const auto deps_info = extract_dependencies(config, check_code);
     NC_ASSERT_TRUE( deps_info.empty() );
     return EXIT_SUCCESS;
   }

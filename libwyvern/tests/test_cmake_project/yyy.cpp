@@ -1,4 +1,4 @@
-#include "test_project.hpp"
+#include "yyy.hpp"
 
 namespace test_cmake_project {
     void function_yyy()

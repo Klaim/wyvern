@@ -62,7 +62,7 @@ namespace wyvern
   };
 
   LIBWYVERN_SYMEXPORT
-  DependenciesInfo extract_dependencies(const cmake::Configuration& config);
+  DependenciesInfo extract_dependencies(const cmake::Configuration& config, std::string test_code="");
 
   using path = butl::path; // File path
   using dir_path = butl::dir_path; // Directory path
