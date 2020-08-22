@@ -91,7 +91,7 @@ namespace {
 
   auto write_to_file(path file_path, const std::string& content) -> void
   {
-    log() << format("writing into file {}", file_path.realize().string());
+    log() << format("writing into file {}", file_path.normalize(true, true).string());
     using namespace butl;
     static const auto open_mode = fdopen_mode::truncate | fdopen_mode::create;
     ofdstream file { file_path, open_mode };
@@ -101,10 +101,10 @@ namespace {
 
   auto create_directories(dir_path directory_path) -> void
   {
-    log() << format("creating directories {}", directory_path.realize().string());
+    log() << format("creating directories {}", directory_path.normalize(true, true).string());
     const auto result = butl::try_mkdir_p(directory_path);
     if(result != butl::mkdir_status::success){
-      throw failure(format("Failed to create directory {}", directory_path.realize().string()));
+      throw failure(format("Failed to create directory {}", directory_path.normalize(true, true).string()));
     }
   }
 
@@ -240,8 +240,8 @@ int main() {{  }}
     }, reply_dir);
 
     if(found_path.empty())
-      throw failure(format("Failed to find index json file in {}", reply_dir.realize().string()));
-    return (reply_dir / found_path).realize();
+      throw failure(format("Failed to find index json file in {}", reply_dir.normalize(true, true).string()));
+    return (reply_dir / found_path).normalize(true, true);
   }
 
   auto read_cmake_api_reply_json(dir_path reply_dir)
@@ -304,8 +304,8 @@ int main() {{  }}
     write_to_file(query_file_path, cmake_file_api_query_json);
 
     // 2. invoke cmake in that directory
-    invoke_cmake({ build_directory_path.realize().string() });
-    invoke_cmake({ "--build", build_directory_path.realize().string() }); // Build to be sure it works
+    invoke_cmake({ build_directory_path.normalize(true, true).string() });
+    invoke_cmake({ "--build", build_directory_path.normalize(true, true).string() }); // Build to be sure it works
 
     // 3. retrieve the JSON information
     const dir_path reply_directory_path = build_directory_path / dir_path(".cmake/api/v1/reply/");
@@ -315,8 +315,8 @@ int main() {{  }}
   auto configure_project(dir_path project_path, dir_path build_path, const Configuration& cmake_config)
     -> void
   {
-    const auto source_arg = project_path.realize().string();
-    const auto build_dir_arg = build_path.realize().string();
+    const auto source_arg = project_path.normalize(true, true).string();
+    const auto build_dir_arg = build_path.normalize(true, true).string();
 
     auto args = cmake_config.args;
     for(const auto& option : cmake_config.options)
@@ -335,7 +335,7 @@ int main() {{  }}
 namespace wyvern
 {
   scoped_temp_dir::scoped_temp_dir()
-      : path_(dir_path::temp_path("wyvern").realize())
+      : path_(dir_path::temp_path("wyvern").normalize(true, true))
   {
     create_directories(path_);
   }
@@ -344,8 +344,8 @@ namespace wyvern
   {
     if(!path_.empty()){
       butl::rmdir_r(path_);
-      log() << format("Deleted directory {}", path_.realize().string());
-      // log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.realize().string());
+      log() << format("Deleted directory {}", path_.normalize(true, true).string());
+      // log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.normalize(true, true).string());
     }
   }
 
@@ -371,7 +371,7 @@ namespace wyvern
 
     // step 2
     const auto build_dir_name = format("build-{}", normalize_name(config.generator));
-    const auto build_dir_path = project_dir.path() / dir_path(build_dir_name);
+    const auto build_dir_path = (project_dir.path() / dir_path(build_dir_name)).normalize(true, true);
     cmake::configure_project(project_dir.path(), build_dir_path, config);
 
     // step 3

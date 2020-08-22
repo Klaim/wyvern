@@ -30,8 +30,8 @@ namespace {
     scoped_temp_dir project_dir;
 
     const auto source_dir = test_project_sources_dir;
-    const auto build_dir = (project_dir.path() / dir_path(test_build_dir_name)).normalize(true, true).realize();
-    const auto install_dir = (project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true).realize();
+    const auto build_dir = (project_dir.path() / dir_path(test_build_dir_name)).normalize(true, true);
+    const auto install_dir = (project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true);
 
     const auto args = std::vector<std::string>{
       "-DCMAKE_INSTALL_PREFIX=" + install_dir.string(),
@@ -56,7 +56,7 @@ int main ()
   try
   {
     const auto test_cmake_project_dir = build_test_cmake_project();
-    const auto test_install_dir = (test_cmake_project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true).realize();
+    const auto test_install_dir = (test_cmake_project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true);
 
     auto config = test_config;
     config.options = {
