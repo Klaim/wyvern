@@ -343,9 +343,9 @@ namespace wyvern
   scoped_temp_dir::~scoped_temp_dir()
   {
     if(!path_.empty()){
-      // butl::rmdir_r(path_);
-      // log() << format("Deleted directory {}", path_.complete().string());
-      log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
+      butl::rmdir_r(path_);
+      log() << format("Deleted directory {}", path_.complete().string());
+      // log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
     }
   }
 
