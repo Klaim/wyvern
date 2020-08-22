@@ -12,7 +12,7 @@ namespace {
 
   const auto test_project_package_name = "test_cmake_project";
   const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy" };
-  const auto test_project_sources_dir = dir_path{ "./libwyvern/tests/test_cmake_project/" }.complete();
+  const auto test_project_sources_dir = dir_path{ "libwyvern/tests/test_cmake_project/" };
   const auto test_build_dir_name = "build-wyvern-test_cmake_project";
   const auto test_install_dir_name = "install-wyvern-test_cmake_project";
 
@@ -30,11 +30,11 @@ namespace {
     scoped_temp_dir project_dir;
 
     const auto source_dir = test_project_sources_dir;
-    const auto build_dir = project_dir.path() / test_build_dir_name;
-    const auto install_dir = project_dir.path() / test_install_dir_name;
+    const auto build_dir = (project_dir.path() / dir_path(test_build_dir_name)).normalize(true, true).realize();
+    const auto install_dir = (project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true).realize();
 
     const auto args = std::vector<std::string>{
-      "-DCMAKE_INSTALL_PREFIX="+install_dir.string(),
+      "-DCMAKE_INSTALL_PREFIX=" + install_dir.string(),
       "-S", source_dir.string(),
       "-B", build_dir.string(),
     };
@@ -56,7 +56,7 @@ int main ()
   try
   {
     const auto test_cmake_project_dir = build_test_cmake_project();
-    const auto test_install_dir = test_cmake_project_dir.path() / test_install_dir_name;
+    const auto test_install_dir = (test_cmake_project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true).realize();
 
     auto config = test_config;
     config.options = {
