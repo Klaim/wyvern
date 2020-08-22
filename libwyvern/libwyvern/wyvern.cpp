@@ -5,6 +5,7 @@
 #include <sstream>
 #include <random>
 #include <regex>
+#include <ranges>
 
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
@@ -13,6 +14,7 @@
 #include <fmt/format.h>
 
 using json = nlohmann::json;
+using fmt::format; // could be std::format if support is available
 
 namespace wyvern {
 namespace {
@@ -69,19 +71,19 @@ namespace {
     static const std::regex to_replace(regex_string);
 
     const auto normalized_name = std::regex_replace(lowercase_name, to_replace, replacement);
-    log() << fmt::format("normalized \"{}\" to \"{}\"", name, normalized_name);
+    log() << format("normalized \"{}\" to \"{}\"", name, normalized_name);
     return normalized_name;
   }
 
   auto quoted(const std::string text)
     -> std::string
   {
-    return fmt::format("\"{}\"", text);
+    return format("\"{}\"", text);
   }
 
   auto write_to_file(path file_path, const std::string& content) -> void
   {
-    log() << fmt::format("writing into file {}", file_path.complete().string());
+    log() << format("writing into file {}", file_path.complete().string());
     using namespace butl;
     static const auto open_mode = fdopen_mode::truncate | fdopen_mode::create;
     ofdstream file { file_path, open_mode };
@@ -91,10 +93,10 @@ namespace {
 
   auto create_directories(dir_path directory_path) -> void
   {
-    log() << fmt::format("creating directories {}", directory_path.complete().string());
+    log() << format("creating directories {}", directory_path.complete().string());
     const auto result = butl::try_mkdir_p(directory_path);
     if(result != butl::mkdir_status::success){
-      throw failure(fmt::format("Failed to create directory {}", directory_path.complete().string()));
+      throw failure(format("Failed to create directory {}", directory_path.complete().string()));
     }
   }
 
@@ -102,8 +104,7 @@ namespace {
   {
     using namespace butl;
     ifdstream file { file_path };
-    json json_content;
-    json_content << file;
+    const json json_content = json::parse(file.read_text());
     return json_content;
   }
 
@@ -124,24 +125,24 @@ namespace wyvern::cmake {
   {
     // TODO: replace by fmt::printf(filedesc, "...", ...);
     std::stringstream code;
-    code << fmt::format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
-    code << fmt::format("project(wyvern_{})\n\n", random_int(0, 99999999));
+    code << format("cmake_minimum_required(VERSION {})\n\n", minimum_cmake_version);
+    code << format("project(wyvern_{})\n\n", random_int(0, 99999999));
 
     if(mode == cmakefile_mode::with_dependencies)
     {
       for(const auto& package : cmake_config.packages)
       {
-        code << fmt::format("find_package({} {} REQUIRED {})\n\n", package.name, package.version, fmt::join(package.constraints, " "));
+        code << format("find_package({} {} REQUIRED {})\n\n", package.name, package.version, fmt::join(package.constraints, " "));
       }
     }
 
     for(const auto& target : cmake_config.targets)
     {
       const auto suffix = normalize_name(target);
-      code << fmt::format("add_executable(wyvern_{} main.cpp header.hpp)\n", suffix);
+      code << format("add_executable(wyvern_{} main.cpp header.hpp)\n", suffix);
       if(mode == cmakefile_mode::with_dependencies)
       {
-        code << fmt::format("target_link_libraries(wyvern_{} PRIVATE {})\n", suffix, target);
+        code << format("target_link_libraries(wyvern_{} PRIVATE {})\n", suffix, target);
       }
     }
     code << "\n\n";
@@ -154,6 +155,7 @@ namespace wyvern::cmake {
     // 1. create main.cpp and header.hpp
     static constexpr auto main_content = R"cpp(
 #include "header.hpp"
+#include <test_project.hpp>
 int main() { }
     )cpp";
 
@@ -178,7 +180,7 @@ int main() { }
   {
     // run the command cmake
     // throw if any error is found
-    log() << fmt::format("cmake {}", fmt::join(args, " "));
+    log() << format("cmake {}", fmt::join(args, " "));
     std::vector<const char*> command{ "cmake" };
     for(const auto& arg : args)
     {
@@ -213,7 +215,7 @@ int main() { }
     }, reply_dir);
 
     if(found_path.empty())
-      throw failure(fmt::format("Failed to find index json file in {}", reply_dir.complete().string()));
+      throw failure(format("Failed to find index json file in {}", reply_dir.complete().string()));
     return (reply_dir / found_path).complete();
   }
 
@@ -278,6 +280,7 @@ int main() { }
 
     // 2. invoke cmake in that directory
     invoke_cmake({ build_directory_path.complete().string() });
+    invoke_cmake({ "--build", build_directory_path.complete().string() }); // Build to be sure it works
 
     // 3. retrieve the JSON information
     const dir_path reply_directory_path = build_directory_path / dir_path(".cmake/api/v1/reply/");
@@ -293,7 +296,7 @@ int main() { }
     auto args = cmake_config.args;
     for(const auto& option : cmake_config.options)
     {
-      args.push_back(fmt::format("-D{}={}", option.first, option.second));
+      args.push_back(format("-D{}={}", option.first, option.second));
     }
 
     args.insert(args.end(), { "-S", source_arg, "-B", build_dir_arg });
@@ -315,9 +318,9 @@ namespace wyvern
   scoped_temp_dir::~scoped_temp_dir()
   {
     if(!path_.empty()){
-      butl::rmdir_r(path_);
-      log() << fmt::format("Deleted directory {}", path_.complete().string());
-      // log() << fmt::format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
+      // butl::rmdir_r(path_);
+      // log() << format("Deleted directory {}", path_.complete().string());
+      log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.complete().string());
     }
   }
 
@@ -342,7 +345,7 @@ namespace wyvern
     cmake::create_cmake_project(project_dir.path(), config, mode);
 
     // step 2
-    const auto build_dir_name = fmt::format("build-{}", normalize_name(config.generator));
+    const auto build_dir_name = format("build-{}", normalize_name(config.generator));
     const auto build_dir_path = project_dir.path() / dir_path(build_dir_name);
     cmake::configure_project(project_dir.path(), build_dir_path, config);
 
@@ -355,6 +358,23 @@ namespace wyvern
   auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& project_codemodel)
     -> DependenciesInfo
   {
+    auto log_codemodel = [](std::string_view name, const cmake::CodeModel& codemodel){
+      log() << format("#### CODEMODEL {} : ####", name);
+      for(const auto& [config_name, config] : codemodel.configs)
+      {
+        log() << format(" - Configuration : {}", config_name);
+        for(const auto& [target_name, target_json] : config.targets)
+        {
+          log() << format("   - Target: {}", target_name);
+
+          // log() << format("     include dirs: {}", fmt::join(" ", target_json[]);
+        }
+      }
+    };
+
+    log_codemodel("control", control_codemodel);
+    log_codemodel("project", project_codemodel);
+
     return {};
   }
 
