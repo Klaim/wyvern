@@ -21,7 +21,7 @@ namespace {
       // config.generator = "Visual Studio 16 2019"; // Use default generator
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
-      // config.args = { "--debug", };
+      config.args = { "--config release", };
       return config;
   }();
 

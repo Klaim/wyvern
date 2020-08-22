@@ -387,43 +387,42 @@ namespace wyvern
     return codemodel;
   }
 
-  auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& project_codemodel)
-    -> DependenciesInfo
+  auto log_codemodel(std::string_view name, const cmake::CodeModel &codemodel) -> void
   {
-    auto log_codemodel = [](std::string_view name, const cmake::CodeModel& codemodel){
-      log() << format("#### CODEMODEL {} : ####", name);
-      for(auto [config_name, config] : codemodel.configs)
+    log() << format("#### CODEMODEL {} : ####", name);
+    for (auto [config_name, config] : codemodel.configs)
+    {
+      log() << format(" - Configuration : {}", config_name);
+      for (auto [target_name, target_json] : config.targets)
       {
-        log() << format(" - Configuration : {}", config_name);
-        for(auto [target_name, target_json] : config.targets)
+        log() << format("   - Target: {}", target_name);
+        auto compilation_groups = target_json["compileGroups"];
+        for (auto compile_info : compilation_groups)
         {
-          log() << format("   - Target: {}", target_name);
-          auto compilation_groups = target_json["compileGroups"];
-          for(auto compile_info : compilation_groups){
-            log() << format("    => {}", compile_info["language"]);
-            auto compile_fragments = compile_info["compileCommandFragments"];
-            if(!compile_fragments.is_null())
-            for(auto compile_flags : compile_fragments)
+          log() << format("    => {}", compile_info["language"]);
+          auto compile_fragments = compile_info["compileCommandFragments"];
+          if (!compile_fragments.is_null())
+            for (auto compile_flags : compile_fragments)
             {
               log() << format("       compilation flags: {}", compile_flags["fragment"]);
             }
 
-            auto include_dirs = compile_info["includes"];
-            if(!include_dirs.is_null())
-            for(auto include_dir : include_dirs)
+          auto include_dirs = compile_info["includes"];
+          if (!include_dirs.is_null())
+            for (auto include_dir : include_dirs)
             {
               const bool is_system = include_dir["isSystem"];
               const auto path = include_dir["path"];
-              log() << format("       include dir{}: {}", ( is_system ? " (system)" : ""), path);
+              log() << format("       include dir{}: {}", (is_system ? " (system)" : ""), path);
             }
-          }
+        }
 
-          const auto& link_info = target_json["link"];
-          if(!link_info.is_null())
-          {
-            const auto& link_cmd_fragments = link_info["commandFragments"];
-            if(!link_cmd_fragments.is_null())
-            for(const auto& link_flags : link_cmd_fragments)
+        const auto &link_info = target_json["link"];
+        if (!link_info.is_null())
+        {
+          const auto &link_cmd_fragments = link_info["commandFragments"];
+          if (!link_cmd_fragments.is_null())
+            for (const auto &link_flags : link_cmd_fragments)
             {
               const auto &role = link_flags["role"];
               if (role == "flags")
@@ -439,12 +438,14 @@ namespace wyvern
                 log() << format("       failed to read link info (unknown role): {}", link_flags.dump());
               }
             }
-          }
-
         }
       }
-    };
+    }
+  }
 
+  auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& project_codemodel)
+    -> DependenciesInfo
+  {
     log_codemodel("control", control_codemodel);
     log_codemodel("project", project_codemodel);
 
