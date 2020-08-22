@@ -324,7 +324,14 @@ int main() {{  }}
       args.push_back(format("-D{}={}", option.first, option.second));
     }
 
+    if(!cmake_config.generator.empty())
+    {
+      args.insert(args.end(), { "-G", cmake_config.generator } );
+    }
+
     args.insert(args.end(), { "-S", source_arg, "-B", build_dir_arg });
+
+
     invoke_cmake(args);
   }
 
