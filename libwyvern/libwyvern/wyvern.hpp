@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 #include <string>
+#include <map>
 
 #include <libbutl/path.mxx>
 
@@ -37,32 +38,45 @@ namespace wyvern::cmake {
 
 namespace wyvern
 {
+  struct Compilation
+  {
+    std::vector<std::string> include_directories;
+    std::vector<std::string> compilation_flags;
+    std::vector<std::string> defines;
+    std::vector<std::string> source_files;
+  };
   struct Target
   {
     std::string name;
-    std::vector<std::string> include_directories;
+    std::map<std::string, Compilation> language_compilation; //Compilation info per language
     std::vector<std::string> libraries_directories;
     std::vector<std::string> link_libraries;
-    std::vector<std::string> compilation_flags;
     std::vector<std::string> link_flags;
-    std::vector<std::string> source_files;
   };
 
   struct Configuration
   {
     std::string name;
-    std::string directory;
-    std::vector<Target> targets;
+    std::map<std::string, Target> targets;
   };
 
   struct DependenciesInfo
   {
-    std::vector<Configuration> configurations; // There can be more than one configuration generated, for example with Visual Studio generators.
+    std::map<std::string, Configuration> configurations; // There can be more than one configuration generated, for example with Visual Studio generators.
     bool empty() const { return configurations.empty(); }
   };
 
   LIBWYVERN_SYMEXPORT
-  DependenciesInfo extract_dependencies(const cmake::Configuration& config, std::string test_code="");
+  std::ostream& operator<<(std::ostream& out, const DependenciesInfo& deps);
+
+  struct Options
+  {
+    bool keep_generated_projects = false;
+    std::string code_format_to_inject_in_client;
+  };
+
+  LIBWYVERN_SYMEXPORT
+  DependenciesInfo extract_dependencies(const cmake::Configuration& config, Options options = {});
 
   using path = butl::path; // File path
   using dir_path = butl::dir_path; // Directory path
@@ -70,6 +84,8 @@ namespace wyvern
   class LIBWYVERN_SYMEXPORT scoped_temp_dir
   {
     dir_path path_;
+    bool keep_directory = false;
+
   public:
 
     // Move-only
@@ -78,7 +94,7 @@ namespace wyvern
     scoped_temp_dir(scoped_temp_dir&&);
     scoped_temp_dir& operator=(scoped_temp_dir&&);
 
-    scoped_temp_dir();
+    scoped_temp_dir(bool keep_directory = false);
     ~scoped_temp_dir();
 
     const dir_path& path() const { return this->path_; }

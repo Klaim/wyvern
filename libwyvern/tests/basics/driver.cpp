@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iostream>
+#include <algorithm>
 
 #include <nocontracts/assert.hpp>
 
@@ -10,31 +11,36 @@ using namespace wyvern;
 
 namespace {
 
+  const bool keep_generated_directories = false;
+
   const auto test_project_package_name = "test_cmake_project";
-  const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy" };
-  const auto test_project_sources_dir = dir_path{ "./libwyvern/tests/test_cmake_project/" }.complete();
+  const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy", "test_project::zzz" };
+  const auto test_project_sources_dir = dir_path{ "libwyvern/tests/test_cmake_project/" };
   const auto test_build_dir_name = "build-wyvern-test_cmake_project";
   const auto test_install_dir_name = "install-wyvern-test_cmake_project";
 
   const auto test_config = []{
       cmake::Configuration config;
-      // config.generator = "Visual Studio 16 2019 Win64"; // Use default generator
+      // config.generator = "Visual Studio 16 2019"; // Use default generator
+  //    config.generator = "Ninja"; // Used to check issues
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
-      // config.args = { "--debug", };
+      config.args = { "--config release", };
       return config;
   }();
 
   scoped_temp_dir build_test_cmake_project()
   {
-    scoped_temp_dir project_dir;
+    scoped_temp_dir project_dir{keep_generated_directories};
 
     const auto source_dir = test_project_sources_dir;
-    const auto build_dir = project_dir.path() / test_build_dir_name;
-    const auto install_dir = project_dir.path() / test_install_dir_name;
+    const auto build_dir = (project_dir.path() / dir_path(test_build_dir_name)).normalize(true, true);
+    const auto install_dir = (project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true);
 
     const auto args = std::vector<std::string>{
-      "-DCMAKE_INSTALL_PREFIX="+install_dir.string(),
+      "-DCMAKE_INSTALL_PREFIX=" + install_dir.string(),
+//      "-G", test_config.generator,
+      "-DCMAKE_BUILD_TYPE=Release",
       "-S", source_dir.string(),
       "-B", build_dir.string(),
     };
@@ -56,7 +62,7 @@ int main ()
   try
   {
     const auto test_cmake_project_dir = build_test_cmake_project();
-    const auto test_install_dir = test_cmake_project_dir.path() / test_install_dir_name;
+    const auto test_install_dir = (test_cmake_project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true);
 
     auto config = test_config;
     config.options = {
@@ -70,8 +76,17 @@ void check() {{
 }}
     )cpp";
 
-    const auto deps_info = extract_dependencies(config, check_code);
-    NC_ASSERT_TRUE( deps_info.empty() );
+    Options options;
+    options.code_format_to_inject_in_client = check_code;
+    options.keep_generated_projects = keep_generated_directories;
+
+    const auto deps_info = extract_dependencies(config, options);
+    NC_ASSERT_TRUE( !deps_info.empty() );
+
+    // TODO: add checks here
+    std::cout << "############# DEDUCED DEPENDENCIES ##############" << std::endl;
+    std::cout << deps_info << std::endl;
+
     return EXIT_SUCCESS;
   }
   catch(const std::exception& err){
