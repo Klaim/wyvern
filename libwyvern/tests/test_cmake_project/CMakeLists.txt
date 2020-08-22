@@ -7,22 +7,30 @@ set(header "${include_dir}/test_project.hpp")
 message(STATUS "INCLUDE DIR = ${include_dir}")
 
 add_library(xxx ${header} source.cpp)
-target_include_directories(xxx PUBLIC ${include_dir})
+target_include_directories(xxx PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
 
 add_library(yyy ${header} source.cpp)
-target_include_directories(yyy PUBLIC ${include_dir})
-
-
-export(
-  TARGETS xxx yyy
-  NAMESPACE test_cmake::
-  FILE test_cmake_project-config.cmake
+target_include_directories(yyy PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
-install( TARGETS xxx yyy DESTINATION lib )
-install(FILES "${PROJECT_SOURCE_DIR}/include/test_project.hpp"
-  DESTINATION include
+install(TARGETS xxx yyy
+  EXPORT test_cmake_project
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
 )
 
+install(DIRECTORY include
+  DESTINATION .
+)
 
-
+install(EXPORT test_cmake_project
+  DESTINATION lib/cmake/test_cmake_project
+  FILE "test_cmake_project-config.cmake"
+  NAMESPACE test_project::
+)

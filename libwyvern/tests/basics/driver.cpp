@@ -14,6 +14,7 @@ namespace {
   const auto test_project_targets = std::vector<std::string>{ "xxx", "yyy" };
   const auto test_project_sources_dir = dir_path{ "./libwyvern/tests/test_cmake_project/" }.complete();
   const auto test_build_dir_name = "build-wyvern-test_cmake_project";
+  const auto test_install_dir_name = "install-wyvern-test_cmake_project";
 
   const auto test_config = []{
       cmake::Configuration config;
@@ -30,6 +31,7 @@ namespace {
 
     const auto source_dir = test_project_sources_dir;
     const auto build_dir = project_dir.path() / test_build_dir_name;
+    const auto install_dir = project_dir.path() / test_install_dir_name;
 
     const auto args = std::vector<std::string>{
       "-S", source_dir.string(),
@@ -38,7 +40,8 @@ namespace {
 
     // NOTE: we'll use the default generator, no need to precise it.
     cmake::invoke_cmake(args); // Configure
-    cmake::invoke_cmake({ "--build", build_dir.string() }); // Build? Is that necessary?
+    cmake::invoke_cmake({ "-DCMAKE_INSTALL_PREFIX="+install_dir.string(), "--build", build_dir.string() });
+    cmake::invoke_cmake({ "--install", build_dir.string() });
 
     return project_dir;
   }
@@ -51,11 +54,11 @@ int main ()
   try
   {
     const auto test_cmake_project_dir = build_test_cmake_project();
-    const auto test_build_dir = test_cmake_project_dir.path() / test_build_dir_name;
+    const auto test_install_dir = test_cmake_project_dir.path() / test_install_dir_name;
 
     auto config = test_config;
     config.options = {
-      { "test_cmake_project_DIR", test_build_dir.string() }
+      { "CMAKE_PREFIX_PATH", test_install_dir.string() }
     };
 
     const auto deps_info = extract_dependencies(config);
