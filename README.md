@@ -7,3 +7,7 @@ Tools to **expose CMake packages/projects to Build2 build system**.
  - CMake: https://cmake.org
 
 The main objective here is to be able to use CMake packages and projects from a Build2 project.
+
+
+Special Thanks to @blastrock (Philippe Daouadi) for the help figuring out issues with the cmake export stuffs in the tests.
+
