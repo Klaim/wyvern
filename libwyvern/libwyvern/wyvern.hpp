@@ -73,6 +73,7 @@ namespace wyvern
   {
     bool keep_generated_projects = false;
     std::string code_format_to_inject_in_client;
+    bool enable_logging = false;
   };
 
   LIBWYVERN_SYMEXPORT
