@@ -19,6 +19,8 @@ using fmt::format; // could be std::format if support is available
 namespace wyvern {
 namespace {
 
+  const auto target_prefix = "wyvern_";
+
   struct failure : std::runtime_error
   {
     using std::runtime_error::runtime_error;
@@ -84,6 +86,21 @@ namespace {
   void append(std::vector<T>& values, const std::vector<T>& other_values)
   {
     values.insert(values.end(), other_values.begin(), other_values.end());
+  }
+
+  template<class Range>
+  auto sort(Range& range)
+  {
+    using std::begin;
+    using std::end;
+    return std::sort(begin(range), end(range));
+  }
+
+  auto difference(const std::vector<std::string>& left, const std::vector<std::string>& right)
+  {
+    std::vector<std::string> diff;
+    std::set_difference(left.begin(), left.end(), right.begin(), right.end(), std::back_inserter(diff));
+    return diff;
   }
 
   auto escape_braces(std::string text) -> std::string
@@ -172,10 +189,11 @@ namespace {
     for(const auto& target : cmake_config.targets)
     {
       const auto suffix = normalize_name(target);
-      code << format("add_executable(wyvern_{suffix} main_{suffix}.cpp header_{suffix}.hpp)\n", fmt::arg("suffix", suffix));
+      const auto target_name = format("{}{suffix}", target_prefix, fmt::arg("suffix", suffix));
+      code << format("add_executable({} main_{suffix}.cpp header_{suffix}.hpp)\n", target_name, fmt::arg("suffix", suffix));
       if(mode == cmakefile_mode::with_dependencies)
       {
-        code << format("target_link_libraries(wyvern_{} PRIVATE {})\n", suffix, target);
+        code << format("target_link_libraries({} PRIVATE {})\n", target_name, target);
       }
     }
     code << "\n\n";
@@ -347,39 +365,87 @@ int main() {{  }}
 namespace wyvern
 {
   scoped_temp_dir::scoped_temp_dir(bool keep_directory)
-        : path_(dir_path::temp_path("wyvern").normalize(true, true)), keep_directory(keep_directory)
-    {
-      create_directories(path_);
-    }
+      : path_(dir_path::temp_path("wyvern").normalize(true, true)), keep_directory(keep_directory)
+  {
+    create_directories(path_);
+  }
 
-    scoped_temp_dir::~scoped_temp_dir()
+  scoped_temp_dir::~scoped_temp_dir()
+  {
+    if (!path_.empty())
     {
-      if (!path_.empty())
+      if (keep_directory)
       {
-        if (keep_directory)
+        log() << format("DIRECTORY NOT DELETED: {}", path_.normalize(true, true).string());
+      }
+      else
+      {
+        butl::rmdir_r(path_);
+        log() << format("Deleted directory {}", path_.normalize(true, true).string());
+      }
+    }
+  }
+
+  scoped_temp_dir::scoped_temp_dir(scoped_temp_dir &&other)
+      : path_(std::move(other.path_))
+  {
+    other.path_.clear();
+  }
+
+  scoped_temp_dir &scoped_temp_dir::operator=(scoped_temp_dir &&other)
+  {
+    this->path_ = std::move(other.path_);
+    other.path_.clear();
+    return *this;
+  }
+
+
+  std::ostream& operator<<(std::ostream& out, const DependenciesInfo& deps)
+  {
+    out << "Dependencies Info: {}\n";
+    for(const auto& [config_name, config] : deps.configurations)
+    {
+      out << format("  Configuration: {}\n", config_name);
+      for(const auto& [target_name, target] : config.targets)
+      {
+        out << format("    Target: {}\n", target_name);
+        for(const auto& [language, compilation]: target.language_compilation)
         {
-          log() << format("DIRECTORY NOT DELETED: {}", path_.normalize(true, true).string());
+          out << format("    -> {}\n", language);
+          for(const auto& include_dir : compilation.include_directories)
+          {
+            out << format("      include dir: {}\n", include_dir);
+          }
+          for(const auto& define : compilation.defines)
+          {
+            out << format("      define: {}\n", define);
+          }
+          for(const auto& flag : compilation.compilation_flags)
+          {
+            out << format("      compile flag: {}\n", flag);
+          }
+          for(const auto& source : compilation.source_files)
+          {
+            out << format("      source: {}\n", source);
+          }
         }
-        else
+        for(const auto& lib_dir : target.libraries_directories)
         {
-          butl::rmdir_r(path_);
-          log() << format("Deleted directory {}", path_.normalize(true, true).string());
+          out << format("    library dir: {}\n", lib_dir);
+        }
+        for(const auto& lib : target.link_libraries)
+        {
+          out << format("    library: {}\n", lib);
+        }
+        for(const auto& flag : target.link_flags)
+        {
+          out << format("    link flag: {}\n", flag);
         }
       }
     }
 
-    scoped_temp_dir::scoped_temp_dir(scoped_temp_dir &&other)
-        : path_(std::move(other.path_))
-    {
-      other.path_.clear();
-    }
-
-    scoped_temp_dir &scoped_temp_dir::operator=(scoped_temp_dir &&other)
-    {
-      this->path_ = std::move(other.path_);
-      other.path_.clear();
-      return *this;
-    }
+    return out;
+  }
 
   namespace
   {
@@ -470,27 +536,37 @@ namespace wyvern
       Compilation compilation;
       auto compile_fragments = compile_info["compileCommandFragments"];
       if (!compile_fragments.is_null())
+      {
         for (auto compile_flags : compile_fragments)
         {
           const auto flags = parse_values(compile_flags["fragment"]);
           append(compilation.compilation_flags, flags);
         }
+        sort(compilation.compilation_flags);
+      }
+
 
       auto defines_fragments = compile_info["defines"];
       if (!defines_fragments.is_null())
+      {
         for (auto define : defines_fragments)
         {
           compilation.defines.push_back(define["define"]);
         }
+        sort(compilation.defines);
+      }
 
       auto include_dirs = compile_info["includes"];
       if (!include_dirs.is_null())
+      {
         for (auto include_dir : include_dirs)
         {
           const bool is_system = include_dir["isSystem"]; // TODO: decide if we need to keep that info
           const auto path = include_dir["path"];
           compilation.include_directories.push_back(path);
         }
+        sort(compilation.include_directories);
+      }
 
       return compilation;
     }
@@ -511,6 +587,7 @@ namespace wyvern
       {
         const auto &link_cmd_fragments = link_info["commandFragments"];
         if (!link_cmd_fragments.is_null())
+        {
           for (const auto &link_flags : link_cmd_fragments)
           {
             const auto &role = link_flags["role"];
@@ -529,6 +606,10 @@ namespace wyvern
               throw failure(format("failed to read link info (unknown role): {}", link_flags.dump()));
             }
           }
+          sort(target.link_flags);
+          sort(target.link_libraries);
+          sort(target.libraries_directories);
+        }
       }
 
       return target;
@@ -540,7 +621,7 @@ namespace wyvern
       config.name = name;
       for (auto [target_name, target_json] : codemodel_config.targets)
       {
-        config.targets.push_back(extract_target(target_json));
+        config.targets[target_name] = extract_target(target_json);
       }
       return config;
     }
@@ -550,9 +631,50 @@ namespace wyvern
       DependenciesInfo dependencies;
       for (auto [config_name, config] : codemodel.configs)
       {
-        dependencies.configurations.push_back(extract_config(config_name, config));
+        dependencies.configurations[config_name] = extract_config(config_name, config);
       }
       return dependencies;
+    }
+
+
+
+    auto differences(const Compilation& left, const Compilation& right) -> Compilation
+    {
+      Compilation different;
+      different.compilation_flags = difference(left.compilation_flags, right.compilation_flags);
+      different.defines = difference(left.defines, right.defines);
+      different.include_directories = difference(left.include_directories, right.include_directories);
+      different.source_files = difference(left.source_files, right.source_files);
+      return different;
+    }
+
+    auto differences(const Target& left, const Target& right) -> Target
+    {
+      Target different;
+      different.libraries_directories = difference(left.libraries_directories, right.libraries_directories);
+      different.link_flags = difference(left.link_flags, right.link_flags);
+      different.link_libraries = difference(left.link_libraries, right.link_libraries);
+
+      for(const auto& [ language_name, left_compilation ] : left.language_compilation)
+      {
+        const auto& right_compilation = right.language_compilation.find(language_name)->second;
+        different.language_compilation[language_name] = differences(left_compilation, right_compilation);
+      }
+
+      return different;
+    }
+
+    auto differences(const Configuration& left, const Configuration& right) -> Configuration
+    {
+      Configuration different;
+      for(const auto& [target_name, left_target] : left.targets)
+      {
+        const auto& right_target = right.targets.find(target_name)->second;
+        static const std::regex to_remove(wyvern::target_prefix);
+        const auto dependency_name = std::regex_replace(target_name, to_remove, ""); // Deduce the dependency name by removing the of our test target
+        different.targets[dependency_name] = differences(left_target, right_target);
+      }
+      return different;
     }
 
     auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& dependent_codemodel)
@@ -561,12 +683,16 @@ namespace wyvern
       log_codemodel("control", control_codemodel);
       log_codemodel("project", dependent_codemodel);
 
-      DependenciesInfo differences;
+      DependenciesInfo diff;
       DependenciesInfo control = extract_dependencies(control_codemodel);
       DependenciesInfo dependent = extract_dependencies(dependent_codemodel);
 
+      for(const auto& [config_name, config] : dependent.configurations)
+      {
+        diff.configurations[config_name] = differences(config, control.configurations[config_name]);
+      }
 
-      return differences;
+      return diff;
     }
   } // namespace
 
@@ -603,6 +729,6 @@ namespace wyvern
 
     log() << "End cmake dependencies extraction" << " here";
 
-    return {};
+    return dependencies;
   }
 } // namespace wyvern

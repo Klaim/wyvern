@@ -57,14 +57,17 @@ namespace wyvern
   struct Configuration
   {
     std::string name;
-    std::vector<Target> targets;
+    std::map<std::string, Target> targets;
   };
 
   struct DependenciesInfo
   {
-    std::vector<Configuration> configurations; // There can be more than one configuration generated, for example with Visual Studio generators.
+    std::map<std::string, Configuration> configurations; // There can be more than one configuration generated, for example with Visual Studio generators.
     bool empty() const { return configurations.empty(); }
   };
+
+  LIBWYVERN_SYMEXPORT
+  std::ostream& operator<<(std::ostream& out, const DependenciesInfo& deps);
 
   struct Options
   {

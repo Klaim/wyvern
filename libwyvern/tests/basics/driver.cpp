@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iostream>
+#include <algorithm>
 
 #include <nocontracts/assert.hpp>
 
@@ -78,7 +79,12 @@ void check() {{
     options.keep_generated_projects = keep_generated_directories;
 
     const auto deps_info = extract_dependencies(config, options);
-    NC_ASSERT_TRUE( deps_info.empty() );
+    NC_ASSERT_TRUE( !deps_info.empty() );
+
+    // TODO: add checks here
+    std::cout << "############# DEDUCED DEPENDENCIES ##############" << std::endl;
+    std::cout << deps_info << std::endl;
+
     return EXIT_SUCCESS;
   }
   catch(const std::exception& err){
