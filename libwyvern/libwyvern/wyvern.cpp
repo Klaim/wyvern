@@ -87,7 +87,7 @@ namespace {
     static const std::regex to_replace(regex_string);
 
     const auto normalized_name = std::regex_replace(lowercase_name, to_replace, replacement);
-    log() << format("normalized \"{}\" to \"{}\"", name, normalized_name);
+    // log() << format("normalized \"{}\" to \"{}\"", name, normalized_name);
     return normalized_name;
   }
 
