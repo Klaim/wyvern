@@ -22,6 +22,7 @@ namespace {
   const auto test_config = []{
       cmake::Configuration config;
       // config.generator = "Visual Studio 16 2019"; // Use default generator
+  //    config.generator = "Ninja"; // Used to check issues
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
       config.args = { "--config release", };
@@ -38,7 +39,8 @@ namespace {
 
     const auto args = std::vector<std::string>{
       "-DCMAKE_INSTALL_PREFIX=" + install_dir.string(),
-      // "-G", test_config.generator,
+//      "-G", test_config.generator,
+      "-DCMAKE_BUILD_TYPE=Release",
       "-S", source_dir.string(),
       "-B", build_dir.string(),
     };
