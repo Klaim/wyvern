@@ -1,6 +1,6 @@
 : 1
 name: libwyvern
-version: 0.1.0-a.0.z
+version: 0.1.0
 project: wyvern
 summary: Tools to extract CMake information for exposure to build2
 license: Boost Software License
