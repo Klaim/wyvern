@@ -1,0 +1,10 @@
+# : basics
+# :
+# $* 'World' >'Hello, World!'
+#
+
+: missing-arguments
+:
+$* 2>>EOE != 0
+FAIL!
+EOE
