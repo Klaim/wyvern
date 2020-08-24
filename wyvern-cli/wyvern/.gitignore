@@ -1,0 +1,5 @@
+wyvern-cli
+
+# Testscript output directory (can be symlink).
+#
+test-wyvern-cli

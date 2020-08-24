@@ -1,2 +1,4 @@
 : 1
 location: libwyvern/
+:
+location: wyvern-cli/
