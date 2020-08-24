@@ -5,6 +5,8 @@
 #include <sstream>
 #include <random>
 #include <regex>
+#include <atomic>
+#include <variant>
 
 #include <nlohmann/json.hpp>
 #include <libbutl/process.mxx>
@@ -21,30 +23,42 @@ namespace {
 
   const auto target_prefix = "wyvern_";
 
+
   struct failure : std::runtime_error
   {
     using std::runtime_error::runtime_error;
   };
 
+
+  std::atomic<bool> is_logging_enabled{ false };
+
   struct Logger
   {
     std::stringstream logged;
 
-    Logger() { logged << "wyvern: "; }
+    Logger()
+    {
+      if(is_logging_enabled)
+        logged << "wyvern: ";
+    }
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
+    Logger(Logger&&) = default;
+    Logger& operator=(Logger&&) = default;
 
     template<class Arg>
     friend auto operator<<(Logger&& logger, Arg&& to_log)
       -> Logger&&
     {
-      logger.logged << std::forward<Arg>(to_log);
+      if(is_logging_enabled)
+        logger.logged << std::forward<Arg>(to_log);
       return std::move(logger);
     }
 
     ~Logger()
     {
-      std::cout << logged.str() <<std::endl;
+      if(is_logging_enabled)
+        std::cout << logged.str() <<std::endl;
     }
   };
 
@@ -155,7 +169,19 @@ namespace wyvern::cmake {
     }
     command.push_back(nullptr);
 
-    butl::process cmake_process(command.data());
+    struct Pipes{
+      int in = 0;
+      int out = 1;
+      int err = 2;
+    };
+    auto pipes = []()->Pipes{
+      if(is_logging_enabled)
+        return {};
+      else
+        return { 0, -2, -2 };
+    }();
+
+    butl::process cmake_process(command.data(), pipes.in, pipes.out, pipes.err);
     if(!cmake_process.wait())
     {
       throw failure("CMake process failed");
@@ -700,6 +726,8 @@ namespace wyvern
   auto extract_dependencies(const cmake::Configuration& config, Options options)
     -> DependenciesInfo
   {
+    is_logging_enabled = options.enable_logging;
+
     log() << "Begin cmake dependencies extraction" << " now";
 
 

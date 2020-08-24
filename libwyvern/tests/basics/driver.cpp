@@ -21,15 +21,14 @@ namespace {
 
   const auto test_config = []{
       cmake::Configuration config;
-      // config.generator = "Visual Studio 16 2019"; // Use default generator
-  //    config.generator = "Ninja"; // Used to check issues
+      // config.generator = "Visual Studio 16 2019"; // Use default generator for testing.
       config.packages = { { test_project_package_name } };
       config.targets = test_project_targets;
       config.args = { "--config release", };
       return config;
   }();
 
-  scoped_temp_dir build_test_cmake_project()
+  scoped_temp_dir build_install_test_cmake_project()
   {
     scoped_temp_dir project_dir{keep_generated_directories};
 
@@ -39,7 +38,7 @@ namespace {
 
     const auto args = std::vector<std::string>{
       "-DCMAKE_INSTALL_PREFIX=" + install_dir.string(),
-//      "-G", test_config.generator,
+//      "-G", test_config.generator, // Use the default generator for testing.
       "-DCMAKE_BUILD_TYPE=Release",
       "-S", source_dir.string(),
       "-B", build_dir.string(),
@@ -61,7 +60,7 @@ int main ()
 
   try
   {
-    const auto test_cmake_project_dir = build_test_cmake_project();
+    const auto test_cmake_project_dir = build_install_test_cmake_project();
     const auto test_install_dir = (test_cmake_project_dir.path() / dir_path(test_install_dir_name)).normalize(true, true);
 
     auto config = test_config;
@@ -77,6 +76,7 @@ void check() {{
     )cpp";
 
     Options options;
+    options.enable_logging = true;
     options.code_format_to_inject_in_client = check_code;
     options.keep_generated_projects = keep_generated_directories;
 
