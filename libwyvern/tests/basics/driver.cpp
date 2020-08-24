@@ -14,7 +14,7 @@ namespace {
   const bool keep_generated_directories = false;
 
   const auto test_project_package_name = "test_cmake_project";
-  const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy" };
+  const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy", "test_project::zzz" };
   const auto test_project_sources_dir = dir_path{ "libwyvern/tests/test_cmake_project/" };
   const auto test_build_dir_name = "build-wyvern-test_cmake_project";
   const auto test_install_dir_name = "install-wyvern-test_cmake_project";

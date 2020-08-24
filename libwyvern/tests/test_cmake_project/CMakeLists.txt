@@ -27,8 +27,21 @@ target_compile_definitions(yyy
     -DYYY_THIS_DEFINITION_IS_PRIVATE
 )
 
+add_library(zzz STATIC ${include_dir}/test_project_zzz.hpp zzz.cpp)
+target_include_directories(zzz PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_compile_definitions(zzz
+  INTERFACE
+    -DZZZ_THIS_DEFINITION_IS_INTERFACE
+  PUBLIC
+    -DZZZ_THIS_DEFINITION_IS_PUBLIC
+  PRIVATE
+    -DZZZ_THIS_DEFINITION_IS_PRIVATE
+)
 
-install(TARGETS xxx yyy
+install(TARGETS xxx yyy zzz
   EXPORT test_cmake_project
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
