@@ -458,7 +458,8 @@ namespace wyvern
       cmake::create_cmake_project(project_dir.path(), config, mode, options.code_format_to_inject_in_client);
 
       // step 2
-      const auto build_dir_name = format("build-{}", normalize_name(config.generator));
+      const auto generator_name = config.generator.empty() ? std::string("default-generator") : normalize_name(config.generator);
+      const auto build_dir_name = format("build-{}", generator_name);
       const auto build_dir_path = (project_dir.path() / dir_path(build_dir_name)).normalize(true, true);
       cmake::configure_project(project_dir.path(), build_dir_path, config);
 
