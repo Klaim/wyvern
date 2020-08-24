@@ -3,7 +3,7 @@ name: libwyvern
 version: 0.1.0-a.0.z
 project: wyvern
 summary: Tools to extract CMake information for exposure to build2
-license: other: proprietary ; Not free/open source.
+license: Boost Software License
 description-file: README.md
 url: https://github.com/Klaim/wyvern
 email: mjklaim@gmail.com
