@@ -24,9 +24,45 @@ Current Plan
 
 Point 4 is not necessary, just send the code to Boris.
 
+
+TODO
+----
+
+ - fix name of dependencies targets not being preserved in the output;
+ - add a cli program to run the `extract_dependencies` function on any CMake project installed;
+ - try to run the cli on a few important projects:
+   - fmt (because it's simple and easy)
+   - boost
+   - gtest? (because it's non-trivial)
+   - Ogre? (because it's bullshit-hard)
+ - try to run the cli with libraries installed via `vcpkg`
+ - if possible, make clear in the dependencies info if library targets are static or shared (not sure it's information kept by cmake...);
+
+### DONE
+
+ - output the info found (at least on stdout)
+ - start write the tool to read the basic info:
+   - list of targets, with for each target:
+     - programming language
+     - include dirs
+     - binaries paths (or just the dirs where to find them?)
+     - link flags that users should use
+     - preprocessor flags that user should use
+     - compilation flags that user should use
+
+ - gather dependencies for the tool:
+   - boost(process) - used butl isntead
+   - something for handling arguments and help
+   - json library (modern json?)
+   - format library (fmt?)
+
+ - play with cmake file-api in the case of a cmake-package
+ - see how it looks when you have a cmake package referencing other packages (through find_package)
+ - find how to distinguish include dirs that should be added to a library users, vs the other libraries (private)
+
+
 Notes
 -----
-
 
 1. cmake exposes information about targets depending on the build mode.
 Therefore, we need to specify which mode we want the target in.
@@ -51,37 +87,6 @@ Therefore, we need to specify which mode we want the target in.
 
 4. BEWARE of taking into account the dependencies of the found targets.
     We have to keep track of the dependencies being local OR the remote ones.
-
-TODO
-----
-
- - gather dependencies for the tool:
-   - boost(process)
-   - something for handling arguments and help
-   - json library (modern json?)
-   - format library (fmt?)
-
- - start write the tool to read the basic info:
-   - list of targets, with for each target:
-     - programming language
-     - include dirs
-     - binaries paths (or just the dirs where to find them?)
-     - link flags that users should use
-     - preprocessor flags that user should use
-     - compilation flags that user should use
-
- - output the info found (at least on stdout)
-    - in variables that build2 can understand: config.libmachin.libs=<value> (see build2 doc)
-
- - try to "pipe" the output into a bdep/bpkg init command?
-
- - DONE: play cmake file-api with simple source/build project
-
-### DONE
-
- - play with cmake file-api in the case of a cmake-package
- - see how it looks when you have a cmake package referencing other packages (through find_package)
- - find how to distinguish include dirs that should be added to a library users, vs the other libraries (private)
 
 
 Reports
