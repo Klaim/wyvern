@@ -18,6 +18,15 @@ target_include_directories(yyy PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
 )
+target_compile_definitions(yyy
+  INTERFACE
+    -DYYY_THIS_DEFINITION_IS_INTERFACE
+  PUBLIC
+    -DYYY_THIS_DEFINITION_IS_PUBLIC
+  PRIVATE
+    -DYYY_THIS_DEFINITION_IS_PRIVATE
+)
+
 
 install(TARGETS xxx yyy
   EXPORT test_cmake_project

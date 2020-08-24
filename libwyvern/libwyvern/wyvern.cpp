@@ -10,6 +10,7 @@
 #include <libbutl/process.mxx>
 #include <libbutl/filesystem.mxx>
 #include <libbutl/fdstream.mxx>
+#include <libbutl/string-parser.mxx>
 #include <fmt/format.h>
 
 using json = nlohmann::json;
@@ -74,10 +75,15 @@ namespace {
     return normalized_name;
   }
 
-  auto quoted(const std::string text)
-    -> std::string
+  auto parse_values(const std::string& values) -> std::vector<std::string>
   {
-    return format("\"{}\"", text);
+    return butl::string_parser::parse_quoted(values, true);
+  }
+
+  template<class T>
+  void append(std::vector<T>& values, const std::vector<T>& other_values)
+  {
+    values.insert(values.end(), other_values.begin(), other_values.end());
   }
 
   auto escape_braces(std::string text) -> std::string
@@ -120,6 +126,25 @@ namespace {
 
 namespace wyvern::cmake {
 
+  auto invoke_cmake(const std::vector<std::string>& args) -> void
+  {
+    // run the command cmake
+    // throw if any error is found
+    log() << format("cmake {}", fmt::join(args, " "));
+    std::vector<const char*> command{ "cmake" };
+    for(const auto& arg : args)
+    {
+      command.push_back(arg.c_str());
+    }
+    command.push_back(nullptr);
+
+    butl::process cmake_process(command.data());
+    if(!cmake_process.wait())
+    {
+      throw failure("CMake process failed");
+    }
+  }
+namespace {
   constexpr auto minimum_cmake_version = "3.10";
 
   enum class cmakefile_mode
@@ -157,7 +182,7 @@ namespace wyvern::cmake {
     return code.str();
   }
 
-  auto create_cmake_project(dir_path directory_path, const Configuration& cmake_config, cmakefile_mode mode, std::string test_code)
+  auto create_cmake_project(dir_path directory_path, const Configuration& cmake_config, cmakefile_mode mode, std::string test_code_format)
     -> void
   {
     // 1. create main.cpp and header.hpp
@@ -181,7 +206,7 @@ int main() {{  }}
         if(mode == cmakefile_mode::without_dependencies)
           return {};
 
-        auto code = test_code;
+        auto code = test_code_format;
         if(!code.empty())
         {
           code = format(code, fmt::arg("target_name", target_name));
@@ -199,25 +224,6 @@ int main() {{  }}
     const auto cmakefile_path = directory_path / path("CMakeLists.txt");
     const auto cmakefile_content = generate_cmakefile_code(cmake_config, mode);
     write_to_file(cmakefile_path, cmakefile_content);
-  }
-
-  auto invoke_cmake(const std::vector<std::string>& args) -> void
-  {
-    // run the command cmake
-    // throw if any error is found
-    log() << format("cmake {}", fmt::join(args, " "));
-    std::vector<const char*> command{ "cmake" };
-    for(const auto& arg : args)
-    {
-      command.push_back(arg.c_str());
-    }
-    command.push_back(nullptr);
-
-    butl::process cmake_process(command.data());
-    if(!cmake_process.wait())
-    {
-      throw failure("CMake process failed");
-    }
   }
 
   struct CodeModel
@@ -336,123 +342,235 @@ int main() {{  }}
   }
 
 
-}
-
+}}
 
 namespace wyvern
 {
-  scoped_temp_dir::scoped_temp_dir()
-      : path_(dir_path::temp_path("wyvern").normalize(true, true))
-  {
-    create_directories(path_);
-  }
-
-  scoped_temp_dir::~scoped_temp_dir()
-  {
-    if(!path_.empty()){
-      butl::rmdir_r(path_);
-      log() << format("Deleted directory {}", path_.normalize(true, true).string());
-      // log() << format("COMMENTED REMOVAL OF PROJECT DIR {}  - PLEASE FIXME", path_.normalize(true, true).string());
-    }
-  }
-
-  scoped_temp_dir::scoped_temp_dir(scoped_temp_dir&& other)
-    : path_(std::move(other.path_))
-  {
-    other.path_.clear();
-  }
-
-  scoped_temp_dir& scoped_temp_dir::operator=(scoped_temp_dir&& other)
-  {
-    this->path_ = std::move(other.path_);
-    other.path_.clear();
-    return *this;
-  }
-
-  auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode, std::string test_code="")
-    -> cmake::CodeModel
-  {
-    // step 1
-    const scoped_temp_dir project_dir;
-    cmake::create_cmake_project(project_dir.path(), config, mode, test_code);
-
-    // step 2
-    const auto build_dir_name = format("build-{}", normalize_name(config.generator));
-    const auto build_dir_path = (project_dir.path() / dir_path(build_dir_name)).normalize(true, true);
-    cmake::configure_project(project_dir.path(), build_dir_path, config);
-
-    // step 3
-    const auto codemodel = cmake::query_cmake_file_api(build_dir_path);
-
-    return codemodel;
-  }
-
-  auto log_codemodel(std::string_view name, const cmake::CodeModel &codemodel) -> void
-  {
-    log() << format("#### CODEMODEL {} : ####", name);
-    for (auto [config_name, config] : codemodel.configs)
+  scoped_temp_dir::scoped_temp_dir(bool keep_directory)
+        : path_(dir_path::temp_path("wyvern").normalize(true, true)), keep_directory(keep_directory)
     {
-      log() << format(" - Configuration : {}", config_name);
-      for (auto [target_name, target_json] : config.targets)
+      create_directories(path_);
+    }
+
+    scoped_temp_dir::~scoped_temp_dir()
+    {
+      if (!path_.empty())
       {
-        log() << format("   - Target: {}", target_name);
-        auto compilation_groups = target_json["compileGroups"];
-        for (auto compile_info : compilation_groups)
+        if (keep_directory)
         {
-          log() << format("    => {}", compile_info["language"]);
-          auto compile_fragments = compile_info["compileCommandFragments"];
-          if (!compile_fragments.is_null())
-            for (auto compile_flags : compile_fragments)
-            {
-              log() << format("       compilation flags: {}", compile_flags["fragment"]);
-            }
-
-          auto include_dirs = compile_info["includes"];
-          if (!include_dirs.is_null())
-            for (auto include_dir : include_dirs)
-            {
-              const bool is_system = include_dir["isSystem"];
-              const auto path = include_dir["path"];
-              log() << format("       include dir{}: {}", (is_system ? " (system)" : ""), path);
-            }
+          log() << format("DIRECTORY NOT DELETED: {}", path_.normalize(true, true).string());
         }
-
-        const auto &link_info = target_json["link"];
-        if (!link_info.is_null())
+        else
         {
-          const auto &link_cmd_fragments = link_info["commandFragments"];
-          if (!link_cmd_fragments.is_null())
-            for (const auto &link_flags : link_cmd_fragments)
-            {
-              const auto &role = link_flags["role"];
-              if (role == "flags")
-              {
-                log() << format("       link flags: {}", link_flags["fragment"]);
-              }
-              else if (role == "libraries")
-              {
-                log() << format("       link libraries: {}", link_flags["fragment"]);
-              }
-              else
-              {
-                log() << format("       failed to read link info (unknown role): {}", link_flags.dump());
-              }
-            }
+          butl::rmdir_r(path_);
+          log() << format("Deleted directory {}", path_.normalize(true, true).string());
         }
       }
     }
-  }
 
-  auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& project_codemodel)
-    -> DependenciesInfo
+    scoped_temp_dir::scoped_temp_dir(scoped_temp_dir &&other)
+        : path_(std::move(other.path_))
+    {
+      other.path_.clear();
+    }
+
+    scoped_temp_dir &scoped_temp_dir::operator=(scoped_temp_dir &&other)
+    {
+      this->path_ = std::move(other.path_);
+      other.path_.clear();
+      return *this;
+    }
+
+  namespace
   {
-    log_codemodel("control", control_codemodel);
-    log_codemodel("project", project_codemodel);
 
-    return {};
-  }
+    auto extract_codemodel(const cmake::Configuration& config, cmake::cmakefile_mode mode, Options options)
+        -> cmake::CodeModel
+    {
+      // step 1
+      const scoped_temp_dir project_dir{options.keep_generated_projects};
+      cmake::create_cmake_project(project_dir.path(), config, mode, options.code_format_to_inject_in_client);
 
-  auto extract_dependencies(const cmake::Configuration& config, std::string test_code)
+      // step 2
+      const auto build_dir_name = format("build-{}", normalize_name(config.generator));
+      const auto build_dir_path = (project_dir.path() / dir_path(build_dir_name)).normalize(true, true);
+      cmake::configure_project(project_dir.path(), build_dir_path, config);
+
+      // step 3
+      const auto codemodel = cmake::query_cmake_file_api(build_dir_path);
+
+      return codemodel;
+    }
+
+    auto log_codemodel(std::string_view name, const cmake::CodeModel& codemodel) -> void
+    {
+      log() << format("#### CODEMODEL {} : ####", name);
+      for (auto [config_name, config] : codemodel.configs)
+      {
+        log() << format(" - Configuration : {}", config_name);
+        for (auto [target_name, target_json] : config.targets)
+        {
+          log() << format("   - Target: {}", target_name);
+          auto compilation_groups = target_json["compileGroups"];
+          for (auto compile_info : compilation_groups)
+          {
+            log() << format("    => {}", compile_info["language"]);
+            auto compile_fragments = compile_info["compileCommandFragments"];
+            if (!compile_fragments.is_null())
+              for (auto compile_flags : compile_fragments)
+              {
+                log() << format("       compilation flags: {}", compile_flags["fragment"]);
+              }
+
+            auto defines_fragments = compile_info["defines"];
+            if (!defines_fragments.is_null())
+              for (auto define : defines_fragments)
+              {
+                log() << format("       define: {}", define["define"]);
+              }
+
+            auto include_dirs = compile_info["includes"];
+            if (!include_dirs.is_null())
+              for (auto include_dir : include_dirs)
+              {
+                const bool is_system = include_dir["isSystem"];
+                const auto path = include_dir["path"];
+                log() << format("       include dir{}: {}", (is_system ? " (system)" : ""), path);
+              }
+          }
+
+          const auto &link_info = target_json["link"];
+          if (!link_info.is_null())
+          {
+            const auto &link_cmd_fragments = link_info["commandFragments"];
+            if (!link_cmd_fragments.is_null())
+              for (const auto &link_flags : link_cmd_fragments)
+              {
+                const auto &role = link_flags["role"];
+                if (role == "flags")
+                {
+                  log() << format("       link flags: {}", link_flags["fragment"]);
+                }
+                else if (role == "libraries")
+                {
+                  log() << format("       link libraries: {}", link_flags["fragment"]);
+                }
+                else
+                {
+                  log() << format("       failed to read link info (unknown role): {}", link_flags.dump());
+                }
+              }
+          }
+        }
+      }
+    }
+
+    auto extract_compilation(json compile_info) -> Compilation
+    {
+      Compilation compilation;
+      auto compile_fragments = compile_info["compileCommandFragments"];
+      if (!compile_fragments.is_null())
+        for (auto compile_flags : compile_fragments)
+        {
+          const auto flags = parse_values(compile_flags["fragment"]);
+          append(compilation.compilation_flags, flags);
+        }
+
+      auto defines_fragments = compile_info["defines"];
+      if (!defines_fragments.is_null())
+        for (auto define : defines_fragments)
+        {
+          compilation.defines.push_back(define["define"]);
+        }
+
+      auto include_dirs = compile_info["includes"];
+      if (!include_dirs.is_null())
+        for (auto include_dir : include_dirs)
+        {
+          const bool is_system = include_dir["isSystem"]; // TODO: decide if we need to keep that info
+          const auto path = include_dir["path"];
+          compilation.include_directories.push_back(path);
+        }
+
+      return compilation;
+    }
+
+    auto extract_target(json target_json) -> Target
+    {
+      Target target;
+      target.name = target_json["name"];
+      auto compilation_groups = target_json["compileGroups"];
+      for (auto compile_info : compilation_groups)
+      {
+        const auto compile_language = compile_info["language"];
+        target.language_compilation[compile_language] = extract_compilation(compile_info);
+      }
+
+      const auto &link_info = target_json["link"];
+      if (!link_info.is_null())
+      {
+        const auto &link_cmd_fragments = link_info["commandFragments"];
+        if (!link_cmd_fragments.is_null())
+          for (const auto &link_flags : link_cmd_fragments)
+          {
+            const auto &role = link_flags["role"];
+            if (role == "flags")
+            {
+              const auto flags = parse_values(link_flags["fragment"]);
+              append(target.link_flags, flags);
+            }
+            else if (role == "libraries")
+            {
+              const auto libs = parse_values(link_flags["fragment"]);
+              append(target.link_libraries, libs);
+            } // TODO: for some reason there is no library directories, the paths to the libraries is always complete?
+            else
+            {
+              throw failure(format("failed to read link info (unknown role): {}", link_flags.dump()));
+            }
+          }
+      }
+
+      return target;
+    }
+
+    auto extract_config(const std::string& name, const cmake::CodeModel::Configuration& codemodel_config) -> Configuration
+    {
+      Configuration config;
+      config.name = name;
+      for (auto [target_name, target_json] : codemodel_config.targets)
+      {
+        config.targets.push_back(extract_target(target_json));
+      }
+      return config;
+    }
+
+    auto extract_dependencies(const cmake::CodeModel& codemodel) -> DependenciesInfo
+    {
+      DependenciesInfo dependencies;
+      for (auto [config_name, config] : codemodel.configs)
+      {
+        dependencies.configurations.push_back(extract_config(config_name, config));
+      }
+      return dependencies;
+    }
+
+    auto compare_dependencies(const cmake::CodeModel& control_codemodel, const cmake::CodeModel& dependent_codemodel)
+        -> DependenciesInfo
+    {
+      log_codemodel("control", control_codemodel);
+      log_codemodel("project", dependent_codemodel);
+
+      DependenciesInfo differences;
+      DependenciesInfo control = extract_dependencies(control_codemodel);
+      DependenciesInfo dependent = extract_dependencies(dependent_codemodel);
+
+
+      return differences;
+    }
+  } // namespace
+
+  auto extract_dependencies(const cmake::Configuration& config, Options options)
     -> DependenciesInfo
   {
     log() << "Begin cmake dependencies extraction" << " now";
@@ -466,7 +584,7 @@ namespace wyvern
     // 3. Invoke CMake file-api in the resulting build directory to extract and store
     //    JSON information -> A.
     log() << "==== Extracting Control Information ====";
-    const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies, test_code);
+    const auto control_codemodel = extract_codemodel(config, cmake::cmakefile_mode::without_dependencies, options);
 
     // 4. Modify the CMakeLists.txt to add:
     //    - `find_package()` calls for each packages of the configuration provided;
@@ -476,15 +594,15 @@ namespace wyvern
     // 6. Invoke CMake file-api on that new configuration and extract and store the
     //    JSON information -> B.
     log() << "==== Extracting Dependencies Information ====";
-    const auto dependencies_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies, test_code);
+    const auto dependent_codemodel = extract_codemodel(config, cmake::cmakefile_mode::with_dependencies, options);
 
     // 7. Compare A and B, find what's in B that was not in B.
     // Return the result of that comparison.
     log() << "==== Comparing Control & Dependencies Information ====";
-    const auto dependencies = compare_dependencies(control_codemodel, dependencies_codemodel);
+    const auto dependencies = compare_dependencies(control_codemodel, dependent_codemodel);
 
     log() << "End cmake dependencies extraction" << " here";
 
     return {};
   }
-}
+} // namespace wyvern

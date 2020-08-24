@@ -10,6 +10,8 @@ using namespace wyvern;
 
 namespace {
 
+  const bool keep_generated_directories = false;
+
   const auto test_project_package_name = "test_cmake_project";
   const auto test_project_targets = std::vector<std::string>{ "test_project::xxx", "test_project::yyy" };
   const auto test_project_sources_dir = dir_path{ "libwyvern/tests/test_cmake_project/" };
@@ -27,7 +29,7 @@ namespace {
 
   scoped_temp_dir build_test_cmake_project()
   {
-    scoped_temp_dir project_dir;
+    scoped_temp_dir project_dir{keep_generated_directories};
 
     const auto source_dir = test_project_sources_dir;
     const auto build_dir = (project_dir.path() / dir_path(test_build_dir_name)).normalize(true, true);
@@ -71,7 +73,11 @@ void check() {{
 }}
     )cpp";
 
-    const auto deps_info = extract_dependencies(config, check_code);
+    Options options;
+    options.code_format_to_inject_in_client = check_code;
+    options.keep_generated_projects = keep_generated_directories;
+
+    const auto deps_info = extract_dependencies(config, options);
     NC_ASSERT_TRUE( deps_info.empty() );
     return EXIT_SUCCESS;
   }
