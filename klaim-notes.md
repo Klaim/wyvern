@@ -29,7 +29,9 @@ TODO
 ----
 
  - fix name of dependencies targets not being preserved in the output;
+ - allow libwyvern tests to run from any directory, not just the root of this repository;
  - add a cli program to run the `extract_dependencies` function on any CMake project installed;
+   - handle all options we need
  - try to run the cli on a few important projects:
    - fmt (because it's simple and easy)
    - boost
