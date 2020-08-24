@@ -402,44 +402,44 @@ namespace wyvern
 
   std::ostream& operator<<(std::ostream& out, const DependenciesInfo& deps)
   {
-    out << "Dependencies Info: {}\n";
+    out << "Dependencies Info:\n";
     for(const auto& [config_name, config] : deps.configurations)
     {
       out << format("  Configuration: {}\n", config_name);
       for(const auto& [target_name, target] : config.targets)
       {
-        out << format("    Target: {}\n", target_name);
+        out << format("      Target: {}\n", target_name);
         for(const auto& [language, compilation]: target.language_compilation)
         {
-          out << format("    -> {}\n", language);
+          out << format("        -> {}\n", language);
           for(const auto& include_dir : compilation.include_directories)
           {
-            out << format("      include dir: {}\n", include_dir);
+            out << format("          include dir: {}\n", include_dir);
           }
           for(const auto& define : compilation.defines)
           {
-            out << format("      define: {}\n", define);
+            out << format("          define: {}\n", define);
           }
           for(const auto& flag : compilation.compilation_flags)
           {
-            out << format("      compile flag: {}\n", flag);
+            out << format("          compile flag: {}\n", flag);
           }
           for(const auto& source : compilation.source_files)
           {
-            out << format("      source: {}\n", source);
+            out << format("          source: {}\n", source);
           }
         }
         for(const auto& lib_dir : target.libraries_directories)
         {
-          out << format("    library dir: {}\n", lib_dir);
+          out << format("        library dir: {}\n", lib_dir);
         }
         for(const auto& lib : target.link_libraries)
         {
-          out << format("    library: {}\n", lib);
+          out << format("        library: {}\n", lib);
         }
         for(const auto& flag : target.link_flags)
         {
-          out << format("    link flag: {}\n", flag);
+          out << format("        link flag: {}\n", flag);
         }
       }
     }
