@@ -1,1 +1,1 @@
-./: {*/ -build/ -test_cmake_project/ }
+./: {*/ -build/ -test_cmake_project*/ }
