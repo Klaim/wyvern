@@ -38,7 +38,7 @@ namespace {
   };
 
 
-  std::atomic<bool> is_logging_enabled{ false };
+
 
   struct Logger
   {
@@ -422,14 +422,18 @@ namespace wyvern
 
   scoped_temp_dir::scoped_temp_dir(scoped_temp_dir &&other)
       : path_(std::move(other.path_))
+      , keep_directory(std::move(other.keep_directory))
   {
     other.path_.clear();
+    other.keep_directory = false;
   }
 
   scoped_temp_dir &scoped_temp_dir::operator=(scoped_temp_dir &&other)
   {
     this->path_ = std::move(other.path_);
+    this->keep_directory = std::move(other.keep_directory);
     other.path_.clear();
+    other.keep_directory = false;
     return *this;
   }
 
