@@ -41,7 +41,16 @@ target_compile_definitions(zzz
     -DZZZ_THIS_DEFINITION_IS_PRIVATE
 )
 
-install(TARGETS xxx yyy zzz
+
+add_library(aaa SHARED ${include_dir}/test_project_aaa.hpp aaa.cpp)
+target_link_libraries(aaa yyy)
+target_include_directories(aaa PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+
+install(TARGETS xxx yyy zzz aaa
   EXPORT test_cmake_project
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
