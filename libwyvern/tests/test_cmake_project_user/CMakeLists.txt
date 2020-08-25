@@ -12,7 +12,7 @@ set(include_dir "${PROJECT_SOURCE_DIR}/include/")
 message(STATUS "INCLUDE DIR = ${include_dir}")
 
 add_library(user_aaa SHARED ${include_dir}/test_project_user_user_aaa.hpp user_aaa.cpp)
-target_link_libraries(user_aaa PRIVATE test_project::aaa)
+target_link_libraries(user_aaa PUBLIC test_project::aaa)
 target_include_directories(user_aaa PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
