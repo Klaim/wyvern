@@ -19,6 +19,14 @@ using json = nlohmann::json;
 using fmt::format; // could be std::format if support is available
 
 namespace wyvern {
+
+  static std::atomic<bool> is_logging_enabled{ false };
+  bool enable_logging(bool is_enabled)
+  {
+    bool was_enabled = is_logging_enabled.exchange(is_enabled);
+    return was_enabled;
+  }
+
 namespace {
 
   const auto target_prefix = "wyvern_";
@@ -726,7 +734,7 @@ namespace wyvern
   auto extract_dependencies(const cmake::Configuration& config, Options options)
     -> DependenciesInfo
   {
-    is_logging_enabled = options.enable_logging;
+    bool was_logging_enabled = enable_logging(options.enable_logging);
 
     log() << "Begin cmake dependencies extraction" << " now";
 
@@ -757,6 +765,8 @@ namespace wyvern
     const auto dependencies = compare_dependencies(control_codemodel, dependent_codemodel);
 
     log() << "End cmake dependencies extraction" << " here";
+
+    enable_logging(was_logging_enabled);
 
     return dependencies;
   }

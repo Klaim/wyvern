@@ -101,5 +101,7 @@ namespace wyvern
     const dir_path& path() const { return this->path_; }
   };
 
+  LIBWYVERN_SYMEXPORT
+  bool enable_logging(bool is_enabled);
 
 }
